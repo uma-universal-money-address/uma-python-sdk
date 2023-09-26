@@ -22,11 +22,11 @@ class PayerDataOptions(JSONable):
         }
 
     @classmethod
-    def _from_dict(cls, dict: Dict[str, Any]) -> Dict[str, Any]:
+    def _from_dict(cls, json_dict: Dict[str, Any]) -> Dict[str, Any]:
         return {
-            "name_required": dict["name"]["mandatory"],
-            "email_required": dict["email"]["mandatory"],
-            "compliance_required": dict["compliance"]["mandatory"],
+            "name_required": json_dict["name"]["mandatory"],
+            "email_required": json_dict["email"]["mandatory"],
+            "compliance_required": json_dict["compliance"]["mandatory"],
         }
 
 

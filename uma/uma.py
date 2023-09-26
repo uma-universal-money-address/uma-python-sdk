@@ -9,6 +9,7 @@ from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric.ec import ECDSA
 from ecies import encrypt
+
 from uma.currency import Currency
 from uma.exceptions import (
     InvalidRequestException,
@@ -49,7 +50,7 @@ def fetch_public_key_for_vasp(
     url = scheme + vasp_domain + "/.well-known/lnurlpubkey"
     try:
         response = _run_http_get(url)
-    except Exception as ex:
+    except Exception as ex:  # pylint: disable=broad-except
         raise InvalidRequestException(
             f"Unable to fetch pubkey from {vasp_domain}. Make sure the vasp domain is correct."
         ) from ex
@@ -259,7 +260,7 @@ def is_uma_lnurlp_query(url: str) -> bool:
     try:
         parse_lnurlp_request(url)
         return True
-    except Exception:
+    except Exception:  # pylint: disable=broad-except
         return False
 
 

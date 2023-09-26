@@ -12,7 +12,7 @@ SELF = TypeVar("SELF", bound="JSONable")
 @dataclasses.dataclass
 class JSONable(ABC):
     def to_dict(self) -> Dict[str, Any]:
-        dict = {}
+        json_dict = {}
         for key, value in self.__dict__.items():
             if isinstance(value, JSONable):
                 value = value.to_dict()
@@ -23,8 +23,8 @@ class JSONable(ABC):
                 ]
             elif isinstance(value, Enum):
                 value = value.name
-            dict[self._get_field_name(key)] = value
-        return dict
+            json_dict[self._get_field_name(key)] = value
+        return json_dict
 
     def to_json(self) -> str:
         return json.dumps(self.to_dict())
@@ -47,10 +47,11 @@ class JSONable(ABC):
         return cls(**data)
 
     @classmethod
-    def _from_dict(cls, dict: Dict[str, Any]) -> Dict[str, Any]:
+    def _from_dict(cls, json_dict: Dict[str, Any]) -> Dict[str, Any]:
+        # pylint: disable=protected-access
         data = {}
         for field in dataclasses.fields(cls):
-            value = dict.get(cls._get_field_name(field.name), None)
+            value = json_dict.get(cls._get_field_name(field.name), None)
             if value is None:
                 data[field.name] = None
                 continue
