@@ -10,6 +10,7 @@ requests = "*"
 
 [dev-packages]
 black = "*"
+dill = "*"
 exceptiongroup = "*"
 importlib_metadata = "*"
 isort = "==5.11.4"
