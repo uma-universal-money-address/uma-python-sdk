@@ -133,6 +133,7 @@ def create_compliance_payer_data(
     payer_utxos: List[str],
     payer_node_pubkey: Optional[str],
     utxo_callback: str,
+    travel_rule_format: Optional[str] = None,
 ) -> CompliancePayerData:
     timestamp = int(datetime.now(timezone.utc).timestamp())
     nonce = generate_nonce()
@@ -148,6 +149,7 @@ def create_compliance_payer_data(
         utxos=payer_utxos,
         node_pubkey=payer_node_pubkey,
         encrypted_travel_rule_info=encrypted_travel_rule_info,
+        travel_rule_format=travel_rule_format,
         signature=signature,
         signature_nonce=nonce,
         signature_timestamp=timestamp,

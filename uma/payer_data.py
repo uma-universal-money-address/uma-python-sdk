@@ -44,6 +44,12 @@ class CompliancePayerData(JSONable):
     encrypted_travel_rule_info: Optional[str]
     """The travel rule information of the sender. This is encrypted with the receiver's public encryption key"""
 
+    travel_rule_format: Optional[str]
+    """
+    An optional standardized format of the travel rule information (e.g. IVMS). Null indicates raw json or a custom format.
+    This field is formatted as <standardized format>@<version> (e.g. ivms@101.2023). Version is optional.
+    """
+
     signature: str
     """Signature is the base64-encoded signature of sha256(ReceiverAddress|Nonce|Timestamp)"""
 
