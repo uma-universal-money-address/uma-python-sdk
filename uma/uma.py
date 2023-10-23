@@ -6,9 +6,8 @@ from urllib.parse import parse_qs, urlparse
 
 import requests
 from cryptography.exceptions import InvalidSignature
-from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric.ec import ECDSA
-from ecies import encrypt
+from cryptography.hazmat.primitives import serialization
+from ecies import PrivateKey, PublicKey, encrypt
 
 from uma.currency import Currency
 from uma.exceptions import (
@@ -72,8 +71,8 @@ def generate_nonce() -> str:
 
 
 def _sign_payload(payload: bytes, private_key: bytes) -> str:
-    key = serialization.load_der_private_key(private_key, password=None)
-    signature = key.sign(payload, ECDSA(hashes.SHA256()))
+    key = _load_private_key(private_key)
+    signature = key.sign(payload)
     return signature.hex()
 
 
@@ -100,26 +99,42 @@ def _verify_signature(payload: bytes, signature: str, signing_pubkey: bytes) -> 
         other_vasp_pubkey: the bytes of the signing public key of the VASP who signed the payload.
     """
 
-    key = serialization.load_der_public_key(signing_pubkey)
+    key = _load_public_key(signing_pubkey)
     try:
         key.verify(
             signature=bytes.fromhex(signature),
-            data=payload,
-            signature_algorithm=ECDSA(hashes.SHA256()),
+            message=payload,
         )
     except (ValueError, InvalidSignature) as ex:
         raise InvalidSignatureException() from ex
 
 
+def _load_public_key(key: bytes) -> PublicKey:
+    try:
+        return PublicKey(key)
+    except ValueError:
+        der_key = serialization.load_der_public_key(key)
+        return PublicKey(
+            der_key.public_bytes(
+                encoding=serialization.Encoding.X962,
+                format=serialization.PublicFormat.CompressedPoint,
+            )
+        )
+
+
+def _load_private_key(key: bytes) -> PrivateKey:
+    try:
+        return PrivateKey(key)
+    except ValueError:
+        return PrivateKey.from_der(key)
+
+
 def _encrypt_travel_rule_info(
     travel_rule_info: str, receiver_encryption_pubkey: bytes
 ) -> str:
-    public_key = serialization.load_der_public_key(receiver_encryption_pubkey)
+    public_key = _load_public_key(receiver_encryption_pubkey)
     return encrypt(
-        receiver_pk=public_key.public_bytes(
-            encoding=serialization.Encoding.X962,
-            format=serialization.PublicFormat.CompressedPoint,
-        ),
+        receiver_pk=public_key.format(),
         msg=travel_rule_info.encode(),
     ).hex()
 

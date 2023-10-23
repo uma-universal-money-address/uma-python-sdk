@@ -7,9 +7,9 @@ from typing import Tuple
 from unittest.mock import patch
 
 import pytest
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric.ec import SECP256K1, generate_private_key
 from ecies import PrivateKey, decrypt
+from ecies.utils import generate_key
+
 from uma.currency import Currency
 from uma.exceptions import InvalidSignatureException
 from uma.kyc_status import KycStatus
@@ -56,18 +56,9 @@ def test_fetch_public_key() -> None:
 
 
 def _create_key_pair() -> Tuple[bytes, bytes]:
-    private_key = generate_private_key(SECP256K1())
-    private_key_bytes = private_key.private_bytes(
-        encoding=serialization.Encoding.DER,
-        format=serialization.PrivateFormat.PKCS8,
-        encryption_algorithm=serialization.NoEncryption(),
-    )
-    public_key = private_key.public_key()
-    public_key_bytes = public_key.public_bytes(
-        encoding=serialization.Encoding.DER,
-        format=serialization.PublicFormat.SubjectPublicKeyInfo,
-    )
-    return (private_key_bytes, public_key_bytes)
+    private_key = generate_key()
+    public_key = private_key.public_key
+    return (private_key.secret, public_key.format())
 
 
 def test_pay_request_create_and_parse() -> None:
@@ -123,7 +114,7 @@ def test_pay_request_create_and_parse() -> None:
     encrypted_travel_rule_info = (
         result_pay_request.payer_data.compliance.encrypted_travel_rule_info  # pyre-ignore: [16]
     )
-    private_key = PrivateKey.from_der(receiver_encryption_private_key_bytes)
+    private_key = PrivateKey(receiver_encryption_private_key_bytes)
     assert (
         decrypt(private_key.secret, bytes.fromhex(encrypted_travel_rule_info)).decode()
         == travel_rule_info
