@@ -155,8 +155,8 @@ class PubkeyResponse(JSONable):
 
     def to_dict(self) -> Dict[str, Any]:
         json_dict: Dict[str, Any] = {
-            "signingPubkey": self.signing_pubkey.hex(),
-            "encryptionPubkey": self.encryption_pubkey.hex(),
+            "signingPubKey": self.signing_pubkey.hex(),
+            "encryptionPubKey": self.encryption_pubkey.hex(),
         }
         if self.expiration_timestamp:
             json_dict["expirationTimestamp"] = int(
@@ -167,8 +167,8 @@ class PubkeyResponse(JSONable):
     @classmethod
     def _from_dict(cls, json_dict: Dict[str, Any]) -> Dict[str, Any]:
         return {
-            "signing_pubkey": bytes.fromhex(json_dict["signingPubkey"]),
-            "encryption_pubkey": bytes.fromhex(json_dict["encryptionPubkey"]),
+            "signing_pubkey": bytes.fromhex(json_dict["signingPubKey"]),
+            "encryption_pubkey": bytes.fromhex(json_dict["encryptionPubKey"]),
             "expiration_timestamp": datetime.fromtimestamp(
                 json_dict["expirationTimestamp"], timezone.utc
             )
