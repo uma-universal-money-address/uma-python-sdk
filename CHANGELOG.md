@@ -1,6 +1,11 @@
 # Changelog
 
+## v0.1.3
+
+- Fix a typo in the pubkey JSON seriailzation.
+
 ## v0.1.2
+
 - Support both der and compressed key.
 
 ## v0.1.1
