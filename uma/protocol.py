@@ -71,6 +71,10 @@ class LnurlpResponse(JSONable):
     compliance: LnurlComplianceResponse
     uma_version: str
 
+    @classmethod
+    def _get_field_name_overrides(cls) -> Dict[str, str]:
+        return {"encoded_metadata": "metadata", "required_payer_data": "payerData"}
+
     def signable_payload(self) -> bytes:
         signable = "|".join(
             [
@@ -97,6 +101,10 @@ class PayRequest(JSONable):
             ]
         return "|".join(payloads).encode("utf8")
 
+    @classmethod
+    def _get_field_name_overrides(cls) -> Dict[str, str]:
+        return {"currency_code": "currency"}
+
 
 @dataclass
 class RoutePath(JSONable):
@@ -118,12 +126,20 @@ class PayReqResponseCompliance(JSONable):
     utxo_callback: str
     node_pubkey: Optional[str]
 
+    @classmethod
+    def _get_field_name_overrides(cls) -> Dict[str, str]:
+        return {"node_pubkey": "nodePubKey"}
+
 
 @dataclass
 class PayReqResponsePaymentInfo(JSONable):
     currency_code: str
     multiplier: int
     exchange_fees_msats: int
+
+    @classmethod
+    def _get_field_name_overrides(cls) -> Dict[str, str]:
+        return {"exchange_fees_msats": "exchangeFeesMillisatoshi"}
 
 
 @dataclass
@@ -132,6 +148,10 @@ class PayReqResponse(JSONable):
     routes: List[str]
     compliance: PayReqResponseCompliance
     payment_info: PayReqResponsePaymentInfo
+
+    @classmethod
+    def _get_field_name_overrides(cls) -> Dict[str, str]:
+        return {"encoded_invoice": "pr"}
 
 
 @dataclass
