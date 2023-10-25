@@ -117,7 +117,7 @@ def _load_public_key(key: bytes) -> PublicKey:
         return PublicKey(
             der_key.public_bytes(
                 encoding=serialization.Encoding.X962,
-                format=serialization.PublicFormat.CompressedPoint,
+                format=serialization.PublicFormat.UncompressedPoint,
             )
         )
 
