@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.1.4
+
+- Fix a bug in loading key.
+
 ## v0.1.3
 
 - Fix a typo in the pubkey JSON seriailzation.
