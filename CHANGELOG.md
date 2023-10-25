@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.1.5
+
+- Fix the serialized names of several fields.
+
 ## v0.1.4
 
 - Fix a bug in loading key.
