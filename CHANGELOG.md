@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.1.6
+
+- Missed one other mismatched serialized field name.
+
 ## v0.1.5
 
 - Fix the serialized names of several fields.
