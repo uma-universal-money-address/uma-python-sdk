@@ -61,6 +61,10 @@ class CompliancePayerData(JSONable):
     utxo_callback: str
     """The URL that the receiver will call to send UTXOs of the channels that receiver used to receive the payment the once it completes."""
 
+    @classmethod
+    def _get_field_name_overrides(cls) -> Dict[str, str]:
+        return {"node_pubkey": "nodePubKey"}
+
 
 @dataclass
 class PayerData(JSONable):
