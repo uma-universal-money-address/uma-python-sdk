@@ -292,6 +292,7 @@ def test_lnurlp_response_create_and_parse() -> None:
             millisatoshi_per_unit=34_150,
             max_sendable=max_sendable_sats,
             min_sendable=min_sendable_sats,
+            display_decimals=2,
         )
     ]
     is_subject_to_travel_rule = True
