@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.2.0
+
+- Add the display_decimals field to the currency object in the lnurlp response.
+
 ## v0.1.6
 
 - Missed one other mismatched serialized field name.
