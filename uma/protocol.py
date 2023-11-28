@@ -193,6 +193,7 @@ class PubkeyResponse(JSONable):
                 json_dict["expirationTimestamp"], timezone.utc
             )
             if "expirationTimestamp" in json_dict
+            and json_dict["expirationTimestamp"] is not None
             else None,
         }
 
