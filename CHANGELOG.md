@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.2.1
+
+- Handle null expiration correctly when parsing pubkey responses.
+
 ## v0.2.0
 
 - Add the display_decimals field to the currency object in the lnurlp response.
