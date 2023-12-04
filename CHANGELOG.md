@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.2.2
+
+- IMPORTANT: Fix a bug with signature validation to actually ensure the signature matches the pubkey.
+
 ## v0.2.1
 
 - Handle null expiration correctly when parsing pubkey responses.
