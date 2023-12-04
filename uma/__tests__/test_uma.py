@@ -337,3 +337,21 @@ def test_lnurlp_response_create_and_parse() -> None:
         verify_uma_lnurlp_response_signature(
             result_response, receiver_signing_public_key_bytes
         )
+
+
+def test_invalid_lnurlp_signature() -> None:
+    sender_signing_private_key_bytes, _ = _create_key_pair()
+    _, different_signing_key_public = _create_key_pair()
+
+    receiver_address = "bob@vasp2.com"
+    lnurlp_request_url = create_lnurlp_request_url(
+        signing_private_key=sender_signing_private_key_bytes,
+        receiver_address=receiver_address,
+        sender_vasp_domain="vasp1.com",
+        is_subject_to_travel_rule=True,
+    )
+    lnurlp_request = parse_lnurlp_request(lnurlp_request_url)
+
+    # test invalid signature
+    with pytest.raises(InvalidSignatureException):
+        verify_uma_lnurlp_query_signature(lnurlp_request, different_signing_key_public)
