@@ -101,10 +101,12 @@ def _verify_signature(payload: bytes, signature: str, signing_pubkey: bytes) -> 
 
     key = _load_public_key(signing_pubkey)
     try:
-        key.verify(
+        did_verify = key.verify(
             signature=bytes.fromhex(signature),
             message=payload,
         )
+        if not did_verify:
+            raise InvalidSignature()
     except (ValueError, InvalidSignature) as ex:
         raise InvalidSignatureException() from ex
 
