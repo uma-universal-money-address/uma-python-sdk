@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.3.0
+
+- Switch `display_decimals` to `decimals` to better match a LUD-21 proposal after discussions with the author.
+
 ## v0.2.2
 
 - IMPORTANT: Fix a bug with signature validation to actually ensure the signature matches the pubkey.
