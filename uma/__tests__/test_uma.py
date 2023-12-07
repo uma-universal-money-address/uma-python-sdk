@@ -356,8 +356,11 @@ def test_invalid_lnurlp_signature() -> None:
     with pytest.raises(InvalidSignatureException):
         verify_uma_lnurlp_query_signature(lnurlp_request, different_signing_key_public)
 
+
 def test_high_signature_normalization() -> None:
-    pub_key_bytes = bytes.fromhex("047d37ce263a855ff49eb2a537a77a369a861507687bfde1df40062c8774488d644455a44baeb5062b79907d2e6f9692dd5b7bd7c37a3721ba21378d3594672063")
+    pub_key_bytes = bytes.fromhex(
+        "047d37ce263a855ff49eb2a537a77a369a861507687bfde1df40062c8774488d644455a44baeb5062b79907d2e6f9692dd5b7bd7c37a3721ba21378d3594672063"
+    )
 
     lnurlp_request_url = "https://uma.jeremykle.in/.well-known/lnurlp/$jeremy?isSubjectToTravelRule=true&nonce=2734010273&signature=30450220694fce49a32c81a58ddb0090ebdd4c7ff3a1e277d28570c61bf2b8274b5d8286022100fe6f0318579e12726531c8a63aea6a94f59f46b7679f970df33f7750a0d88f36&timestamp=1701461443&umaVersion=0.1&vaspDomain=api.ltng.bakkt.com"
     lnurlp_request = parse_lnurlp_request(lnurlp_request_url)
