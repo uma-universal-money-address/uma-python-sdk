@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.3.1
+
+- Normalize signatures before verifying them to allow for high S-values.
+
 ## v0.3.0
 
 - Switch `display_decimals` to `decimals` to better match a LUD-21 proposal after discussions with the author.
