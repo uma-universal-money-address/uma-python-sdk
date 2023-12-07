@@ -7,7 +7,9 @@ from urllib.parse import parse_qs, urlparse
 import requests
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import serialization
-from ecies import PrivateKey, PublicKey, encrypt
+from coincurve.ecdsa import signature_normalize, der_to_cdata, cdata_to_der
+from coincurve.keys import PrivateKey, PublicKey
+from ecies import encrypt
 
 from uma.currency import Currency
 from uma.exceptions import (
@@ -98,11 +100,13 @@ def _verify_signature(payload: bytes, signature: str, signing_pubkey: bytes) -> 
         signature: the hex-encoded signature.
         other_vasp_pubkey: the bytes of the signing public key of the VASP who signed the payload.
     """
-
     key = _load_public_key(signing_pubkey)
     try:
+        _, normalized_signature = signature_normalize(
+            der_to_cdata(bytes.fromhex(signature))
+        )
         did_verify = key.verify(
-            signature=bytes.fromhex(signature),
+            signature=cdata_to_der(normalized_signature),
             message=payload,
         )
         if not did_verify:
