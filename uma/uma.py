@@ -13,6 +13,7 @@ from ecies import encrypt
 
 from uma.currency import Currency
 from uma.exceptions import (
+    InvalidCurrencyException,
     InvalidRequestException,
     InvalidSignatureException,
     UnsupportedVersionException,
@@ -374,6 +375,7 @@ def create_lnurlp_response(
         is_subject_to_travel_rule=requires_travel_rule_info,
         receiver_kyc_status=receiver_kyc_status,
     )
+    _validate_currency_options(currency_options)
     return LnurlpResponse(
         tag="payRequest",
         callback=callback,
@@ -422,6 +424,26 @@ def verify_uma_lnurlp_response_signature(
         response.compliance.signature,
         other_vasp_signing_pubkey,
     )
+
+
+def _validate_currency_options(currency_options: List[Currency]) -> None:
+    for currency in currency_options:
+        if currency.millisatoshi_per_unit <= 0:
+            raise InvalidCurrencyException(
+                f"Invalid currency option {currency.code}. The multiplier must be greater than 0."
+            )
+        if currency.min_sendable < 0 or currency.max_sendable < 0:
+            raise InvalidCurrencyException(
+                f"Invalid currency option {currency.code}. The min and max sendable amounts must be greater than 0."
+            )
+        if currency.min_sendable > currency.max_sendable:
+            raise InvalidCurrencyException(
+                f"Invalid currency option {currency.code}. The min sendable amount must be less than or equal to the max sendable amount."
+            )
+        if currency.decimals < 0 or currency.decimals > 8:
+            raise InvalidCurrencyException(
+                f"Invalid currency option {currency.code}. The number of decimals must be between 0 and 8."
+            )
 
 
 def get_vasp_domain_from_uma_address(uma_address: str) -> str:
