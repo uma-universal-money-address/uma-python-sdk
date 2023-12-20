@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.4.0
+
+- Make the `decimals` field on `Currency` required and change its description to include more details about its use.
+- Change the `multiplier` field from int to float to allow for very small unit currencies. See [UMAD-04](https://github.com/uma-universal-money-address/protocol/blob/main/umad-04-lnurlp-response.md) for details on why this is needed.
+
 ## v0.3.1
 
 - Normalize signatures before verifying them to allow for high S-values.
