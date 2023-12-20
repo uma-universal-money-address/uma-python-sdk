@@ -1,7 +1,7 @@
 # Copyright ©, 2022-present, Lightspark Group, Inc. - All Rights Reserved
 
 from dataclasses import dataclass
-from typing import Dict, Optional
+from typing import Dict
 
 from uma.JSONable import JSONable
 
