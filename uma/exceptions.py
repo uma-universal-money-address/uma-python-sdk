@@ -19,8 +19,10 @@ class UnsupportedVersionException(Exception):
 class InvalidRequestException(Exception):
     pass
 
+
 class InvalidCurrencyException(Exception):
     pass
+
 
 class InvalidSignatureException(Exception):
     def __init__(self) -> None:
