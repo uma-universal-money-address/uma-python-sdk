@@ -309,7 +309,8 @@ def create_pay_req_response(
     invoice_creator: IUmaInvoiceCreator,
     metadata: str,
     currency_code: str,
-    msats_per_currency_unit: int,
+    currency_decimals: int,
+    msats_per_currency_unit: float,
     receiver_fees_msats: int,
     receiver_utxos: List[str],
     receiver_node_pubkey: Optional[str],
@@ -323,6 +324,8 @@ def create_pay_req_response(
         invoice_creator: the object that will create the invoice. In practice, this is usually a `services.LightsparkClient`.
         metadata: the metadata that will be added to the invoice's metadata hash field.
         currency_code: the code of the currency that the receiver will receive for this payment.
+        currency_decimals: the number of decimal places in the specified currency. For example, USD has 2 decimal places. This should align with the decimals field
+            returned for the chosen currency in the LNURLP response.
         msats_per_currency_unit: milli-satoshis per the smallest unit of the specified currency. This rate is committed to by the receiving VASP until the invoice expires.
         receiver_fees_msats: the fees charged (in millisats) by the receiving VASP to convert to the target currency. This is separate from the conversion rate.
         receiver_utxos: the list of UTXOs of the receiver's channels that might be used to fund the payment.
@@ -333,7 +336,7 @@ def create_pay_req_response(
     amount_msats = request.amount * msats_per_currency_unit + receiver_fees_msats
     metadata += "{" + request.payer_data.to_json() + "}"
     encoded_invoice = invoice_creator.create_uma_invoice(
-        amount_msats=amount_msats,
+        amount_msats=round(amount_msats),
         metadata=metadata,
     )
     return PayReqResponse(
@@ -346,6 +349,7 @@ def create_pay_req_response(
         ),
         payment_info=PayReqResponsePaymentInfo(
             currency_code=currency_code,
+            decimals=currency_decimals,
             multiplier=msats_per_currency_unit,
             exchange_fees_msats=receiver_fees_msats,
         ),
