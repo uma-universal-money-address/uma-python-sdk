@@ -314,8 +314,8 @@ def test_lnurlp_response_create_and_parse() -> None:
     assert response == result_response
     assert result_response.tag == "payRequest"
     assert result_response.callback == callback
-    assert result_response.max_sendable == max_sendable_sats
-    assert result_response.min_sendable == min_sendable_sats
+    assert result_response.max_sendable == max_sendable_sats * 1000
+    assert result_response.min_sendable == min_sendable_sats * 1000
     assert result_response.encoded_metadata == metadata
     assert result_response.currencies == currencies
     assert result_response.currencies == currencies
