@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.4.1
+
+- Fix the top-level min/maxSendable fields on the lnurlpResponse field. They were being set in sats, when they should have been in millisats.
+
 ## v0.4.0
 
 - Make the `decimals` field on `Currency` required and change its description to include more details about its use.
