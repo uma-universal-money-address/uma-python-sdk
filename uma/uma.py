@@ -379,8 +379,8 @@ def create_lnurlp_response(
     return LnurlpResponse(
         tag="payRequest",
         callback=callback,
-        min_sendable=min_sendable_sats,
-        max_sendable=max_sendable_sats,
+        min_sendable=min_sendable_sats * 1000,
+        max_sendable=max_sendable_sats * 1000,
         encoded_metadata=encoded_metadata,
         currencies=currency_options,
         required_payer_data=payer_data_options,
