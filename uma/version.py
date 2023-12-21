@@ -6,7 +6,7 @@ from functools import total_ordering
 from typing import List, Optional
 
 MAJOR_VERSION = 0
-MINOR_VERSION = 2
+MINOR_VERSION = 3
 UMA_PROTOCOL_VERSION = f"{MAJOR_VERSION}.{MINOR_VERSION}"
 
 

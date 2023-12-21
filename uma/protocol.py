@@ -134,8 +134,31 @@ class PayReqResponseCompliance(JSONable):
 @dataclass
 class PayReqResponsePaymentInfo(JSONable):
     currency_code: str
-    multiplier: int
+    """
+    The currency code that the receiver will receive for this payment.
+    """
+
+    decimals: int
+    """
+    Number of digits after the decimal point for the receiving currency. For example, in USD, by
+    convention, there are 2 digits for cents - $5.95. In this case, `decimals` would be 2. This should align with
+    the currency's `decimals` field in the LNURLP response. It is included here for convenience. See
+    [UMAD-04](https://github.com/uma-universal-money-address/protocol/blob/main/umad-04-lnurlp-response.md) for
+    details, edge cases, and examples.
+    """
+
+    multiplier: float
+    """
+    The conversion rate. It is the number of millisatoshis that the receiver will receive for 1
+    unit of the specified currency (eg: cents in USD). In this context, this is just for convenience. The conversion
+    rate is also baked into the invoice amount itself. Specifically:
+    `invoiceAmount = amount * multiplier + exchangeFeesMillisatoshi`
+    """
+
     exchange_fees_msats: int
+    """
+    The fees charged (in millisats) by the receiving VASP for this transaction. This is separate from the `multiplier`.
+    """
 
     @classmethod
     def _get_field_name_overrides(cls) -> Dict[str, str]:

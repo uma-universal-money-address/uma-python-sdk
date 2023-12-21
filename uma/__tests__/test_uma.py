@@ -226,8 +226,9 @@ def test_pay_req_response_create_and_parse() -> None:
         ),
     )
 
-    msats_per_currency_unit = 34_150
+    msats_per_currency_unit = 24_150
     receiver_fees_msats = 2_000
+    currency_decimals = 2
     receiver_utxos = ["abcdef12345"]
     receiver_utxo_callback = "/receiver_api/lnurl/utxocallback?txid=1234"
     receiver_node_pubkey = "dummy_pub_key"
@@ -237,6 +238,7 @@ def test_pay_req_response_create_and_parse() -> None:
         invoice_creator=invoice_creator,
         metadata=_create_metadata(),
         currency_code=currency_code,
+        currency_decimals=currency_decimals,
         msats_per_currency_unit=msats_per_currency_unit,
         receiver_fees_msats=receiver_fees_msats,
         receiver_utxos=receiver_utxos,
@@ -250,6 +252,7 @@ def test_pay_req_response_create_and_parse() -> None:
     assert response.compliance.utxos == receiver_utxos
     assert response.compliance.node_pubkey == receiver_node_pubkey
     assert response.payment_info.currency_code == currency_code
+    assert response.payment_info.decimals == currency_decimals
     assert response.payment_info.multiplier == msats_per_currency_unit
     assert response.payment_info.exchange_fees_msats == receiver_fees_msats
 
