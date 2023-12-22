@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.0
+
+- Add the decimals field to payreq paymentinfo for convenience.
+- Make the multiplier here a float to match the Currency object in the lnurlp response.
+- Bump version to 0.3 since these are breaking changes. Protocol change: uma-universal-money-address/protocol#14
+
 ## v0.4.1
 
 - Fix the top-level min/maxSendable fields on the lnurlpResponse field. They were being set in sats, when they should have been in millisats.
