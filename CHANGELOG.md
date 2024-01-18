@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.1
+
+- Fix a typo: s/UtxoWitAmount/UtxoWithAmount/
+
 ## 0.5.0
 
 - Add the decimals field to payreq paymentinfo for convenience.
