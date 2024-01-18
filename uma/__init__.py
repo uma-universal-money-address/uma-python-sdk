@@ -15,7 +15,7 @@ from uma.protocol import (
     PubkeyResponse,
     Route,
     RoutePath,
-    UtxoWitAmount,
+    UtxoWithAmount,
 )
 from uma.public_key_cache import InMemoryPublicKeyCache, IPublicKeyCache
 from uma.uma import (

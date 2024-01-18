@@ -222,6 +222,6 @@ class PubkeyResponse(JSONable):
 
 
 @dataclass
-class UtxoWitAmount(JSONable):
+class UtxoWithAmount(JSONable):
     utxo: str
     amount_msats: int
