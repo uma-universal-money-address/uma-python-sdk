@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.2
+
+- Use HTTP for more localhost formats to help with local tests.
+
 ## 0.5.1
 
 - Fix a typo: s/UtxoWitAmount/UtxoWithAmount/
