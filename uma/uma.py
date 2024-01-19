@@ -33,6 +33,7 @@ from uma.protocol import (
 )
 from uma.public_key_cache import IPublicKeyCache
 from uma.uma_invoice_creator import IUmaInvoiceCreator
+from uma.urls import is_domain_local
 from uma.version import (
     UMA_PROTOCOL_VERSION,
     get_supported_major_versions,
@@ -48,7 +49,7 @@ def fetch_public_key_for_vasp(
     if public_key:
         return public_key
 
-    scheme = "http://" if vasp_domain.startswith("localhost:") else "https://"
+    scheme = "http://" if is_domain_local(vasp_domain) else "https://"
     url = scheme + vasp_domain + "/.well-known/lnurlpubkey"
     try:
         response = _run_http_get(url)
