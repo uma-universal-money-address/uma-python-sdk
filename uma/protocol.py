@@ -10,6 +10,7 @@ from uma.exceptions import InvalidRequestException
 from uma.JSONable import JSONable
 from uma.kyc_status import KycStatus
 from uma.payer_data import PayerData, PayerDataOptions
+from uma.urls import is_domain_local
 
 
 @dataclass
@@ -30,7 +31,7 @@ class LnurlpRequest:
                 f"invalid receiver address {self.receiver_address}."
             ) from ex
 
-        scheme = "http" if host.startswith("localhost:") else "https"
+        scheme = "http" if is_domain_local(host) else "https"
         base_url = f"{scheme}://{host}/.well-known/lnurlp/{identifier}?"
         params = {
             "signature": self.signature,
