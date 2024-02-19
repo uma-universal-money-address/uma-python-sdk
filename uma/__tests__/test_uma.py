@@ -9,11 +9,13 @@ from unittest.mock import patch
 import pytest
 from ecies import PrivateKey, decrypt
 from ecies.utils import generate_key
+from uma.counterparty_data import create_counterparty_data_options
 
 from uma.currency import Currency
 from uma.exceptions import InvalidSignatureException
 from uma.kyc_status import KycStatus
-from uma.payer_data import PayerDataOptions
+from uma.payee_data import compliance_from_payee_data
+from uma.payer_data import compliance_from_payer_data
 from uma.public_key_cache import InMemoryPublicKeyCache, PubkeyResponse
 from uma.uma import (
     create_compliance_payer_data,
@@ -103,17 +105,22 @@ def test_pay_request_create_and_parse() -> None:
     assert pay_request == result_pay_request
     verify_pay_request_signature(pay_request, sender_signing_public_key_bytes)
 
+    compliance_dict = result_pay_request.payer_data.get("compliance")
+    assert compliance_dict is not None
     # test invalid signature
-    pay_request.payer_data.compliance.signature = (  # pyre-ignore: [16]
+    compliance_dict["signature"] = (  # pyre-ignore: [16]
         secrets.token_hex()
     )
     with pytest.raises(InvalidSignatureException):
-        verify_pay_request_signature(pay_request, sender_signing_public_key_bytes)
+        verify_pay_request_signature(result_pay_request, sender_signing_public_key_bytes)
 
     # verify encryption
+    compliance = compliance_from_payer_data(result_pay_request.payer_data)
+    assert compliance is not None
     encrypted_travel_rule_info = (
-        result_pay_request.payer_data.compliance.encrypted_travel_rule_info  # pyre-ignore: [16]
+        compliance.encrypted_travel_rule_info  # pyre-ignore: [16]
     )
+    assert encrypted_travel_rule_info is not None
     private_key = PrivateKey(receiver_encryption_private_key_bytes)
     assert (
         decrypt(private_key.secret, bytes.fromhex(encrypted_travel_rule_info)).decode()
@@ -248,9 +255,11 @@ def test_pay_req_response_create_and_parse() -> None:
 
     assert response == parse_pay_req_response(response.to_json())
     assert response.encoded_invoice == invoice_creator.DUMMY_INVOICE
-    assert response.compliance.utxo_callback == receiver_utxo_callback
-    assert response.compliance.utxos == receiver_utxos
-    assert response.compliance.node_pubkey == receiver_node_pubkey
+    compliance = compliance_from_payee_data(response.payee_data)
+    assert compliance is not None
+    assert compliance.utxo_callback == receiver_utxo_callback
+    assert compliance.utxos == receiver_utxos
+    assert compliance.node_pubkey == receiver_node_pubkey
     assert response.payment_info.currency_code == currency_code
     assert response.payment_info.decimals == currency_decimals
     assert response.payment_info.multiplier == msats_per_currency_unit
@@ -284,8 +293,8 @@ def test_lnurlp_response_create_and_parse() -> None:
     callback = "https://vasp2.com/api/lnurl/payreq/$bob"
     min_sendable_sats = 1
     max_sendable_sats = 10_000_000
-    payer_data_options = PayerDataOptions(
-        name_required=False, email_required=False, compliance_required=True
+    payer_data_options = create_counterparty_data_options(
+        {"name": False, "email": False, "compliance": True}
     )
     currencies = [
         Currency(

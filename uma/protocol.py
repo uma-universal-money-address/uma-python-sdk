@@ -4,12 +4,14 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlencode
+from uma.counterparty_data import CounterpartyDataOptions
 
 from uma.currency import Currency
 from uma.exceptions import InvalidRequestException
 from uma.JSONable import JSONable
 from uma.kyc_status import KycStatus
-from uma.payer_data import PayerData, PayerDataOptions
+from uma.payee_data import PayeeData
+from uma.payer_data import PayerData, compliance_from_payer_data
 from uma.urls import is_domain_local
 
 
@@ -138,7 +140,7 @@ class LnurlpResponse(JSONable):
     The list of currencies that the receiver accepts in order of preference.
     """
 
-    required_payer_data: PayerDataOptions
+    required_payer_data: CounterpartyDataOptions
     """
     The data about the payer that the sending VASP must provide in order to send a payment.
     """
@@ -187,18 +189,25 @@ class PayRequest(JSONable):
     This was requested by the receiver in the lnulp response. See LUD-18.
     """
 
+    requested_payee_data: Optional[CounterpartyDataOptions]
+    """
+    The data about the receiver that the sending VASP would like to know from the receiver.
+    See LUD-22.
+    """
+
     def signable_payload(self) -> bytes:
-        payloads = [self.payer_data.identifier]
-        if self.payer_data.compliance:
+        payloads = [self.payer_data.get("identifier", "")]
+        compliance = compliance_from_payer_data(self.payer_data)
+        if compliance:
             payloads += [
-                self.payer_data.compliance.signature_nonce,
-                str(self.payer_data.compliance.signature_timestamp),
+                compliance.signature_nonce,
+                str(compliance.signature_timestamp),
             ]
         return "|".join(payloads).encode("utf8")
 
     @classmethod
     def _get_field_name_overrides(cls) -> Dict[str, str]:
-        return {"currency_code": "currency"}
+        return {"currency_code": "currency", "requested_payee_data": "payeeData"}
 
 
 @dataclass
@@ -213,29 +222,6 @@ class RoutePath(JSONable):
 class Route(JSONable):
     pubkey: str
     path: List[RoutePath]
-
-
-@dataclass
-class PayReqResponseCompliance(JSONable):
-    utxos: List[str]
-    """
-    The list of UTXOs of the receiver's channels that might be used to forward the payment.
-    """
-
-    utxo_callback: str
-    """
-    The URL that the sender will call to send UTXOs of the channels that were used to
-    receive the payment once it completes.
-    """
-
-    node_pubkey: Optional[str]
-    """
-    The public key of the receiver's Lightning node that will be used to receive the payment.
-    """
-
-    @classmethod
-    def _get_field_name_overrides(cls) -> Dict[str, str]:
-        return {"node_pubkey": "nodePubKey"}
 
 
 @dataclass
@@ -284,9 +270,9 @@ class PayReqResponse(JSONable):
     Always just an empty array for legacy reasons.
     """
 
-    compliance: PayReqResponseCompliance
+    payee_data: PayeeData
     """
-    Compliance-related data from the receiving VASP.
+    The data about the receiver that the sending VASP requested in the payreq request.
     """
 
     payment_info: PayReqResponsePaymentInfo
