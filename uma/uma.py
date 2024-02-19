@@ -1,4 +1,5 @@
 # Copyright ©, 2022-present, Lightspark Group, Inc. - All Rights Reserved
+import json
 import random
 from datetime import datetime, timezone
 from typing import List, Optional
@@ -10,6 +11,7 @@ from cryptography.hazmat.primitives import serialization
 from coincurve.ecdsa import signature_normalize, der_to_cdata, cdata_to_der
 from coincurve.keys import PrivateKey, PublicKey
 from ecies import encrypt
+from uma.counterparty_data import CounterpartyDataOptions
 
 from uma.currency import Currency
 from uma.exceptions import (
@@ -19,14 +21,18 @@ from uma.exceptions import (
     UnsupportedVersionException,
 )
 from uma.kyc_status import KycStatus
-from uma.payer_data import CompliancePayerData, PayerData
+from uma.payee_data import CompliancePayeeData
+from uma.payer_data import (
+    CompliancePayerData,
+    PayerData,
+    compliance_from_payer_data,
+    create_payer_data,
+)
 from uma.protocol import (
     LnurlComplianceResponse,
     LnurlpRequest,
     LnurlpResponse,
-    PayerDataOptions,
     PayReqResponse,
-    PayReqResponseCompliance,
     PayReqResponsePaymentInfo,
     PayRequest,
     PubkeyResponse,
@@ -83,12 +89,13 @@ def _sign_payload(payload: bytes, private_key: bytes) -> str:
 def verify_pay_request_signature(
     request: PayRequest, other_vasp_signing_pubkey: bytes
 ) -> None:
-    if not request.payer_data.compliance:
+    compliance_data = compliance_from_payer_data(request.payer_data)
+    if not compliance_data:
         return
 
     _verify_signature(
         request.signable_payload(),
-        request.payer_data.compliance.signature,  # pyre-ignore: [16]
+        compliance_data.signature,  # pyre-ignore: [16]
         other_vasp_signing_pubkey,
     )
 
@@ -187,16 +194,18 @@ def create_pay_request(
     payer_name: Optional[str],
     payer_email: Optional[str],
     payer_compliance: Optional[CompliancePayerData],
+    requested_payee_data: Optional[CounterpartyDataOptions] = None,
 ) -> PayRequest:
     return PayRequest(
         currency_code=currency_code,
         amount=amount,
-        payer_data=PayerData(
+        payer_data=create_payer_data(
             identifier=payer_identifier,
             name=payer_name,
             email=payer_email,
             compliance=payer_compliance,
         ),
+        requested_payee_data=requested_payee_data,
     )
 
 
@@ -316,6 +325,7 @@ def create_pay_req_response(
     receiver_utxos: List[str],
     receiver_node_pubkey: Optional[str],
     utxo_callback: str,
+    payee_data: Optional[PayerData] = None,
 ) -> PayReqResponse:
     """
     Creates an uma pay request response with an encoded invoice.
@@ -332,22 +342,25 @@ def create_pay_req_response(
         receiver_utxos: the list of UTXOs of the receiver's channels that might be used to fund the payment.
         receiver_node_pubkey: the public key of the receiver node
         utxo_callback: the URL that the receiving VASP will call to send UTXOs of the channel that the receiver used to receive the payment once it completes.
+        payee_data: the additional data about the payee which was requested in the pay request by the sending VASP, if any.
     """
 
     amount_msats = request.amount * msats_per_currency_unit + receiver_fees_msats
-    metadata += "{" + request.payer_data.to_json() + "}"
+    metadata += json.dumps(request.payer_data)
     encoded_invoice = invoice_creator.create_uma_invoice(
         amount_msats=round(amount_msats),
         metadata=metadata,
     )
+    payee_data = payee_data or {}
+    payee_data["compliance"] = CompliancePayeeData(
+        utxos=receiver_utxos,
+        utxo_callback=utxo_callback,
+        node_pubkey=receiver_node_pubkey,
+    ).to_dict()
     return PayReqResponse(
         encoded_invoice=encoded_invoice,
         routes=[],
-        compliance=PayReqResponseCompliance(
-            utxos=receiver_utxos,
-            utxo_callback=utxo_callback,
-            node_pubkey=receiver_node_pubkey,
-        ),
+        payee_data=payee_data,
         payment_info=PayReqResponsePaymentInfo(
             currency_code=currency_code,
             decimals=currency_decimals,
@@ -369,7 +382,7 @@ def create_lnurlp_response(
     encoded_metadata: str,
     min_sendable_sats: int,
     max_sendable_sats: int,
-    payer_data_options: PayerDataOptions,
+    payer_data_options: CounterpartyDataOptions,
     currency_options: List[Currency],
     receiver_kyc_status: KycStatus,
 ) -> LnurlpResponse:

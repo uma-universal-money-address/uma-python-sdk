@@ -1,33 +1,11 @@
 # Copyright ©, 2022-present, Lightspark Group, Inc. - All Rights Reserved
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+import json
+from typing import Any, Dict, List, Optional, TypeAlias
 
 from uma.JSONable import JSONable
 from uma.kyc_status import KycStatus
-
-
-@dataclass
-class PayerDataOptions(JSONable):
-    name_required: bool
-    email_required: bool
-    compliance_required: bool
-
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "identifier": {"mandatory": True},
-            "name": {"mandatory": self.name_required},
-            "email": {"mandatory": self.email_required},
-            "compliance": {"mandatory": self.compliance_required},
-        }
-
-    @classmethod
-    def _from_dict(cls, json_dict: Dict[str, Any]) -> Dict[str, Any]:
-        return {
-            "name_required": json_dict["name"]["mandatory"],
-            "email_required": json_dict["email"]["mandatory"],
-            "compliance_required": json_dict["compliance"]["mandatory"],
-        }
 
 
 @dataclass
@@ -66,9 +44,30 @@ class CompliancePayerData(JSONable):
         return {"node_pubkey": "nodePubKey"}
 
 
-@dataclass
-class PayerData(JSONable):
-    identifier: str
-    name: Optional[str]
-    email: Optional[str]
-    compliance: Optional[CompliancePayerData]
+PayerData: TypeAlias = Dict[str, Any]
+
+
+def compliance_from_payer_data(payee_data: PayerData) -> Optional[CompliancePayerData]:
+    compliance = payee_data.get("compliance")
+    if not compliance or not isinstance(compliance, dict):
+        return None
+
+    return CompliancePayerData.from_json(json.dumps(compliance))
+
+
+def create_payer_data(
+    identifier: str,
+    email: Optional[str] = None,
+    name: Optional[str] = None,
+    compliance: Optional[CompliancePayerData] = None,
+) -> PayerData:
+    payer_data: PayerData = {
+        "identifier": identifier,
+    }
+    if email:
+        payer_data["email"] = email
+    if name:
+        payer_data["name"] = name
+    if compliance:
+        payer_data["compliance"] = compliance.to_dict()
+    return payer_data
