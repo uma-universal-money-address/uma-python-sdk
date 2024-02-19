@@ -4,12 +4,14 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlencode
+from uma.counterparty_data import CounterpartyDataOptions
 
 from uma.currency import Currency
 from uma.exceptions import InvalidRequestException
 from uma.JSONable import JSONable
 from uma.kyc_status import KycStatus
-from uma.payer_data import PayerData, PayerDataOptions
+from uma.payee_data import PayeeData
+from uma.payer_data import PayerData, compliance_from_payer_data
 from uma.urls import is_domain_local
 
 
@@ -68,7 +70,7 @@ class LnurlpResponse(JSONable):
     max_sendable: int
     encoded_metadata: str
     currencies: List[Currency]
-    required_payer_data: PayerDataOptions
+    required_payer_data: CounterpartyDataOptions
     compliance: LnurlComplianceResponse
     uma_version: str
 
@@ -92,19 +94,21 @@ class PayRequest(JSONable):
     currency_code: str
     amount: int
     payer_data: PayerData
+    requested_payee_data: Optional[CounterpartyDataOptions]
 
     def signable_payload(self) -> bytes:
-        payloads = [self.payer_data.identifier]
-        if self.payer_data.compliance:
+        payloads = [self.payer_data.get("identifier", "")]
+        compliance = compliance_from_payer_data(self.payer_data)
+        if compliance:
             payloads += [
-                self.payer_data.compliance.signature_nonce,
-                str(self.payer_data.compliance.signature_timestamp),
+                compliance.signature_nonce,
+                str(compliance.signature_timestamp),
             ]
         return "|".join(payloads).encode("utf8")
 
     @classmethod
     def _get_field_name_overrides(cls) -> Dict[str, str]:
-        return {"currency_code": "currency"}
+        return {"currency_code": "currency", "requested_payee_data": "payeeData"}
 
 
 @dataclass
@@ -119,17 +123,6 @@ class RoutePath(JSONable):
 class Route(JSONable):
     pubkey: str
     path: List[RoutePath]
-
-
-@dataclass
-class PayReqResponseCompliance(JSONable):
-    utxos: List[str]
-    utxo_callback: str
-    node_pubkey: Optional[str]
-
-    @classmethod
-    def _get_field_name_overrides(cls) -> Dict[str, str]:
-        return {"node_pubkey": "nodePubKey"}
 
 
 @dataclass
@@ -170,7 +163,7 @@ class PayReqResponsePaymentInfo(JSONable):
 class PayReqResponse(JSONable):
     encoded_invoice: str
     routes: List[str]
-    compliance: PayReqResponseCompliance
+    payee_data: PayeeData
     payment_info: PayReqResponsePaymentInfo
 
     @classmethod

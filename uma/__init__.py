@@ -3,13 +3,17 @@
 from uma.currency import Currency
 from uma.exceptions import *
 from uma.kyc_status import KycStatus
-from uma.payer_data import CompliancePayerData, PayerData, PayerDataOptions
+from uma.payer_data import (
+    CompliancePayerData,
+    PayerData,
+    compliance_from_payer_data,
+    create_payer_data,
+)
 from uma.protocol import (
     LnurlComplianceResponse,
     LnurlpRequest,
     LnurlpResponse,
     PayReqResponse,
-    PayReqResponseCompliance,
     PayReqResponsePaymentInfo,
     PayRequest,
     PubkeyResponse,
@@ -45,4 +49,14 @@ from uma.version import (
     is_version_supported,
     select_highest_supported_version,
     select_lower_version,
+)
+from uma.counterparty_data import (
+    CounterpartyDataOption,
+    CounterpartyDataOptions,
+    create_counterparty_data_options,
+)
+from uma.payee_data import (
+    PayeeData,
+    CompliancePayeeData,
+    compliance_from_payee_data,
 )
