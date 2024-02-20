@@ -95,7 +95,7 @@ def verify_pay_request_signature(
 
     _verify_signature(
         request.signable_payload(),
-        compliance_data.signature,  # pyre-ignore: [16]
+        compliance_data.signature,
         other_vasp_signing_pubkey,
     )
 
