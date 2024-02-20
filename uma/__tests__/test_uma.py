@@ -108,18 +108,14 @@ def test_pay_request_create_and_parse() -> None:
     compliance_dict = result_pay_request.payer_data.get("compliance")
     assert compliance_dict is not None
     # test invalid signature
-    compliance_dict["signature"] = (  # pyre-ignore: [16]
-        secrets.token_hex()
-    )
+    compliance_dict["signature"] = secrets.token_hex()
     with pytest.raises(InvalidSignatureException):
         verify_pay_request_signature(result_pay_request, sender_signing_public_key_bytes)
 
     # verify encryption
     compliance = compliance_from_payer_data(result_pay_request.payer_data)
     assert compliance is not None
-    encrypted_travel_rule_info = (
-        compliance.encrypted_travel_rule_info  # pyre-ignore: [16]
-    )
+    encrypted_travel_rule_info = compliance.encrypted_travel_rule_info
     assert encrypted_travel_rule_info is not None
     private_key = PrivateKey(receiver_encryption_private_key_bytes)
     assert (
