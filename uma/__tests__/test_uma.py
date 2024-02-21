@@ -110,7 +110,9 @@ def test_pay_request_create_and_parse() -> None:
     # test invalid signature
     compliance_dict["signature"] = secrets.token_hex()
     with pytest.raises(InvalidSignatureException):
-        verify_pay_request_signature(result_pay_request, sender_signing_public_key_bytes)
+        verify_pay_request_signature(
+            result_pay_request, sender_signing_public_key_bytes
+        )
 
     # verify encryption
     compliance = compliance_from_payer_data(result_pay_request.payer_data)
