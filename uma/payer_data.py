@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 import json
-from typing import Any, Dict, List, Optional, TypeAlias
+from typing import Any, Dict, List, Optional
 
 from uma.JSONable import JSONable
 from uma.kyc_status import KycStatus
@@ -44,7 +44,7 @@ class CompliancePayerData(JSONable):
         return {"node_pubkey": "nodePubKey"}
 
 
-PayerData: TypeAlias = Dict[str, Any]
+PayerData = Dict[str, Any]
 
 
 def compliance_from_payer_data(payee_data: PayerData) -> Optional[CompliancePayerData]:
