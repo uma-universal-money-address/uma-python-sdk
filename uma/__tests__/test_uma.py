@@ -292,7 +292,7 @@ def test_lnurlp_response_create_and_parse() -> None:
     min_sendable_sats = 1
     max_sendable_sats = 10_000_000
     payer_data_options = create_counterparty_data_options(
-        {"name": False, "email": False, "compliance": True}
+        {"name": False, "email": False, "compliance": True, "identifier": True}
     )
     currencies = [
         Currency(
