@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 import json
-from typing import Any, Dict, List, Optional, TypeAlias
+from typing import Any, Dict, List, Optional
 
 from uma.JSONable import JSONable
 
@@ -18,7 +18,7 @@ class CompliancePayeeData(JSONable):
         return {"node_pubkey": "nodePubKey"}
 
 
-PayeeData: TypeAlias = Dict[str, Any]
+PayeeData = Dict[str, Any]
 
 
 def compliance_from_payee_data(payee_data: PayeeData) -> Optional[CompliancePayeeData]:

@@ -1,7 +1,7 @@
 # Copyright ©, 2022-present, Lightspark Group, Inc. - All Rights Reserved
 
 from dataclasses import dataclass
-from typing import Any, Dict, TypeAlias
+from typing import Dict
 
 from uma.JSONable import JSONable
 
@@ -12,7 +12,7 @@ class CounterpartyDataOption(JSONable):
     """Whether the field is mandatory or not"""
 
 
-CounterpartyDataOptions: TypeAlias = Dict[str, CounterpartyDataOption]
+CounterpartyDataOptions = Dict[str, CounterpartyDataOption]
 
 
 def create_counterparty_data_options(
