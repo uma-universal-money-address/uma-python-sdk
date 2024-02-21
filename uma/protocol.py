@@ -196,7 +196,14 @@ class PayRequest(JSONable):
     """
 
     def signable_payload(self) -> bytes:
-        payloads = [self.payer_data.get("identifier", "")]
+        if not self.payer_data:
+            raise InvalidRequestException("payer_data is required.")
+        payer_identifier = self.payer_data.get("identifier")
+        if not payer_identifier:
+            raise InvalidRequestException(
+                "identifier is required in payerdata for uma."
+            )
+        payloads = [payer_identifier]
         compliance = compliance_from_payer_data(self.payer_data)
         if compliance:
             payloads += [
