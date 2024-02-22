@@ -213,12 +213,12 @@ class PubkeyResponse(JSONable):
         return {
             "signing_pubkey": bytes.fromhex(json_dict["signingPubKey"]),
             "encryption_pubkey": bytes.fromhex(json_dict["encryptionPubKey"]),
-            "expiration_timestamp": datetime.fromtimestamp(
-                json_dict["expirationTimestamp"], timezone.utc
-            )
-            if "expirationTimestamp" in json_dict
-            and json_dict["expirationTimestamp"] is not None
-            else None,
+            "expiration_timestamp": (
+                datetime.fromtimestamp(json_dict["expirationTimestamp"], timezone.utc)
+                if "expirationTimestamp" in json_dict
+                and json_dict["expirationTimestamp"] is not None
+                else None
+            ),
         }
 
 
