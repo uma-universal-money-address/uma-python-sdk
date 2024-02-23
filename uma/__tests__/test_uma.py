@@ -253,6 +253,8 @@ def test_pay_req_response_create_and_parse() -> None:
         receiver_utxos=receiver_utxos,
         receiver_node_pubkey=receiver_node_pubkey,
         utxo_callback=receiver_utxo_callback,
+        payee_identifier="$bob@vasp2.com",
+        signing_private_key=receiver_signing_private_key_bytes,
     )
 
     assert response == parse_pay_req_response(response.to_json())
