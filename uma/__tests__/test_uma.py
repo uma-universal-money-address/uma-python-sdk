@@ -205,6 +205,10 @@ class DummyUmaInvoiceCreator(IUmaInvoiceCreator):
 def test_pay_req_response_create_and_parse() -> None:
     sender_signing_private_key_bytes, _ = _create_key_pair()
     _, receiver_encryption_public_key_bytes = _create_key_pair()
+    (
+        receiver_signing_private_key_bytes,
+        receiver_signing_public_key_bytes,
+    ) = _create_key_pair()
 
     travel_rule_info = "some TR info for VASP2"
     currency_code = "USD"
@@ -262,6 +266,7 @@ def test_pay_req_response_create_and_parse() -> None:
     assert response.payment_info.decimals == currency_decimals
     assert response.payment_info.multiplier == msats_per_currency_unit
     assert response.payment_info.exchange_fees_msats == receiver_fees_msats
+    verify_pay_req_response_signature(response, receiver_signing_public_key_bytes)
 
 
 def _create_metadata() -> str:

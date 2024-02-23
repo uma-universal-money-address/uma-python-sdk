@@ -47,8 +47,8 @@ class CompliancePayerData(JSONable):
 PayerData = Dict[str, Any]
 
 
-def compliance_from_payer_data(payee_data: PayerData) -> Optional[CompliancePayerData]:
-    compliance = payee_data.get("compliance")
+def compliance_from_payer_data(payer_data: PayerData) -> Optional[CompliancePayerData]:
+    compliance = payer_data.get("compliance")
     if not compliance or not isinstance(compliance, dict):
         return None
 
