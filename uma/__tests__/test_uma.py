@@ -269,7 +269,12 @@ def test_pay_req_response_create_and_parse() -> None:
     assert response.payment_info.decimals == currency_decimals
     assert response.payment_info.multiplier == msats_per_currency_unit
     assert response.payment_info.exchange_fees_msats == receiver_fees_msats
-    verify_pay_req_response_signature(response, receiver_signing_public_key_bytes)
+    verify_pay_req_response_signature(
+        sender_address="$alice@vasp1.com",
+        receiver_address="$bob@vasp2.com",
+        response=response,
+        other_vasp_signing_pubkey=receiver_signing_public_key_bytes
+    )
 
 
 def _create_metadata() -> str:
