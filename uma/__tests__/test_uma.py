@@ -273,7 +273,7 @@ def test_pay_req_response_create_and_parse() -> None:
         sender_address="$alice@vasp1.com",
         receiver_address="$bob@vasp2.com",
         response=response,
-        other_vasp_signing_pubkey=receiver_signing_public_key_bytes
+        other_vasp_signing_pubkey=receiver_signing_public_key_bytes,
     )
 
 

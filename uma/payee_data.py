@@ -29,7 +29,12 @@ class CompliancePayeeData(JSONable):
 
     def signable_payload(self, sender_address: str, receiver_address: str) -> bytes:
         signable = "|".join(
-            [sender_address, receiver_address, self.signature_nonce, str(int(self.signature_timestamp))]
+            [
+                sender_address,
+                receiver_address,
+                self.signature_nonce,
+                str(int(self.signature_timestamp)),
+            ]
         )
         return signable.encode("utf8")
 

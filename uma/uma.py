@@ -358,16 +358,14 @@ def create_pay_req_response(
     payee_data = payee_data or {}
     payer_identifier = request.payer_data["identifier"]
     if not payer_identifier:
-        raise InvalidRequestException(
-            "Missing payer identifier in request"
-        )
+        raise InvalidRequestException("Missing payer identifier in request")
     payee_data["compliance"] = create_compliance_payee_data(
         signing_private_key=signing_private_key,
         payer_identifier=payer_identifier,
         payee_identifier=payee_identifier,
         receiver_utxos=receiver_utxos,
         receiver_node_pubkey=receiver_node_pubkey,
-        utxo_callback=utxo_callback
+        utxo_callback=utxo_callback,
     ).to_dict()
     return PayReqResponse(
         encoded_invoice=encoded_invoice,
@@ -418,9 +416,7 @@ def verify_pay_req_response_signature(
 ) -> None:
     compliance_data = compliance_from_payee_data(response.payee_data)
     if not compliance_data:
-        raise InvalidRequestException(
-            "Missing compliance data in response"
-        )
+        raise InvalidRequestException("Missing compliance data in response")
 
     _verify_signature(
         compliance_data.signable_payload(sender_address, receiver_address),
