@@ -401,7 +401,7 @@ def create_compliance_payee_data(
         signature_timestamp=timestamp,
     )
     payload = compliance_payee_data.signable_payload(payer_identifier, payee_identifier)
-    signature = _sign_payload(payload.encode(), signing_private_key)
+    signature = _sign_payload(payload, signing_private_key)
     compliance_payee_data.signature = signature
     return compliance_payee_data
 
