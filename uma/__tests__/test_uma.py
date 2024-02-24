@@ -30,6 +30,7 @@ from uma.uma import (
     parse_pay_req_response,
     parse_pay_request,
     verify_pay_request_signature,
+    verify_pay_req_response_signature,
     verify_uma_lnurlp_query_signature,
     verify_uma_lnurlp_response_signature,
 )
@@ -205,6 +206,10 @@ class DummyUmaInvoiceCreator(IUmaInvoiceCreator):
 def test_pay_req_response_create_and_parse() -> None:
     sender_signing_private_key_bytes, _ = _create_key_pair()
     _, receiver_encryption_public_key_bytes = _create_key_pair()
+    (
+        receiver_signing_private_key_bytes,
+        receiver_signing_public_key_bytes,
+    ) = _create_key_pair()
 
     travel_rule_info = "some TR info for VASP2"
     currency_code = "USD"
@@ -249,6 +254,8 @@ def test_pay_req_response_create_and_parse() -> None:
         receiver_utxos=receiver_utxos,
         receiver_node_pubkey=receiver_node_pubkey,
         utxo_callback=receiver_utxo_callback,
+        payee_identifier="$bob@vasp2.com",
+        signing_private_key=receiver_signing_private_key_bytes,
     )
 
     assert response == parse_pay_req_response(response.to_json())
@@ -262,6 +269,12 @@ def test_pay_req_response_create_and_parse() -> None:
     assert response.payment_info.decimals == currency_decimals
     assert response.payment_info.multiplier == msats_per_currency_unit
     assert response.payment_info.exchange_fees_msats == receiver_fees_msats
+    verify_pay_req_response_signature(
+        sender_address="$alice@vasp1.com",
+        receiver_address="$bob@vasp2.com",
+        response=response,
+        other_vasp_signing_pubkey=receiver_signing_public_key_bytes,
+    )
 
 
 def _create_metadata() -> str:

@@ -21,7 +21,7 @@ from uma.exceptions import (
     UnsupportedVersionException,
 )
 from uma.kyc_status import KycStatus
-from uma.payee_data import CompliancePayeeData
+from uma.payee_data import CompliancePayeeData, compliance_from_payee_data
 from uma.payer_data import (
     CompliancePayerData,
     PayerData,
@@ -325,6 +325,8 @@ def create_pay_req_response(
     receiver_utxos: List[str],
     receiver_node_pubkey: Optional[str],
     utxo_callback: str,
+    payee_identifier: str,
+    signing_private_key: bytes,
     payee_data: Optional[PayerData] = None,
 ) -> PayReqResponse:
     """
@@ -342,6 +344,8 @@ def create_pay_req_response(
         receiver_utxos: the list of UTXOs of the receiver's channels that might be used to fund the payment.
         receiver_node_pubkey: the public key of the receiver node
         utxo_callback: the URL that the receiving VASP will call to send UTXOs of the channel that the receiver used to receive the payment once it completes.
+        payee_identifier: the identifier of the receiver. For example, $bob@vasp2.com.
+        signing_private_key: the private key of the VASP that is receiving the payment. This will be used to sign the request.
         payee_data: the additional data about the payee which was requested in the pay request by the sending VASP, if any.
     """
 
@@ -352,10 +356,16 @@ def create_pay_req_response(
         metadata=metadata,
     )
     payee_data = payee_data or {}
-    payee_data["compliance"] = CompliancePayeeData(
-        utxos=receiver_utxos,
+    payer_identifier = request.payer_data["identifier"]
+    if not payer_identifier:
+        raise InvalidRequestException("Missing payer identifier in request")
+    payee_data["compliance"] = _create_compliance_payee_data(
+        signing_private_key=signing_private_key,
+        payer_identifier=payer_identifier,
+        payee_identifier=payee_identifier,
+        receiver_utxos=receiver_utxos,
+        receiver_node_pubkey=receiver_node_pubkey,
         utxo_callback=utxo_callback,
-        node_pubkey=receiver_node_pubkey,
     ).to_dict()
     return PayReqResponse(
         encoded_invoice=encoded_invoice,
@@ -370,8 +380,49 @@ def create_pay_req_response(
     )
 
 
+def _create_compliance_payee_data(
+    signing_private_key: bytes,
+    payer_identifier: str,
+    payee_identifier: str,
+    receiver_utxos: List[str],
+    receiver_node_pubkey: Optional[str],
+    utxo_callback: str,
+) -> CompliancePayeeData:
+    timestamp = int(datetime.now(timezone.utc).timestamp())
+    nonce = generate_nonce()
+    compliance_payee_data = CompliancePayeeData(
+        utxos=receiver_utxos,
+        utxo_callback=utxo_callback,
+        node_pubkey=receiver_node_pubkey,
+        signature="",
+        signature_nonce=nonce,
+        signature_timestamp=timestamp,
+    )
+    payload = compliance_payee_data.signable_payload(payer_identifier, payee_identifier)
+    signature = _sign_payload(payload, signing_private_key)
+    compliance_payee_data.signature = signature
+    return compliance_payee_data
+
+
 def parse_pay_req_response(payload: str) -> PayReqResponse:
     return PayReqResponse.from_json(payload)
+
+
+def verify_pay_req_response_signature(
+    sender_address: str,
+    receiver_address: str,
+    response: PayReqResponse,
+    other_vasp_signing_pubkey: bytes,
+) -> None:
+    compliance_data = compliance_from_payee_data(response.payee_data)
+    if not compliance_data:
+        raise InvalidRequestException("Missing compliance data in response")
+
+    _verify_signature(
+        compliance_data.signable_payload(sender_address, receiver_address),
+        compliance_data.signature,
+        other_vasp_signing_pubkey,
+    )
 
 
 def create_lnurlp_response(
