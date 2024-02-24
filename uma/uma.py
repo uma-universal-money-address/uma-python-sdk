@@ -359,7 +359,7 @@ def create_pay_req_response(
     payer_identifier = request.payer_data["identifier"]
     if not payer_identifier:
         raise InvalidRequestException("Missing payer identifier in request")
-    payee_data["compliance"] = create_compliance_payee_data(
+    payee_data["compliance"] = _create_compliance_payee_data(
         signing_private_key=signing_private_key,
         payer_identifier=payer_identifier,
         payee_identifier=payee_identifier,
@@ -380,7 +380,7 @@ def create_pay_req_response(
     )
 
 
-def create_compliance_payee_data(
+def _create_compliance_payee_data(
     signing_private_key: bytes,
     payer_identifier: str,
     payee_identifier: str,
