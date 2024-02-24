@@ -357,7 +357,7 @@ def create_pay_req_response(
     )
     payee_data = payee_data or {}
     payer_identifier = request.payer_data["identifier"]
-    if (not payer_identifier):
+    if not payer_identifier:
         raise InvalidRequestException(
             "Missing payer identifier in request"
         )
