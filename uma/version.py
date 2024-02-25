@@ -5,8 +5,8 @@ from dataclasses import dataclass
 from functools import total_ordering
 from typing import List, Optional
 
-MAJOR_VERSION = 0
-MINOR_VERSION = 3
+MAJOR_VERSION = 1
+MINOR_VERSION = 0
 UMA_PROTOCOL_VERSION = f"{MAJOR_VERSION}.{MINOR_VERSION}"
 
 
