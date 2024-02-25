@@ -24,27 +24,27 @@ class LnurlpRequest:
     """
     A random string included in the signature payload to prevent replay attacks.
     """
-    
+
     signature: str
     """
     DER-encoded signature from the sending VASP.
     """
-    
+
     is_subject_to_travel_rule: bool
     """
     Whether the sending VASP is subject to travel rule regulations.
     """
-    
+
     vasp_domain: str
     """
     The domain of the sending VASP.
     """
-    
+
     timestamp: datetime
     """
     The time at which the request was made.
     """
-    
+
     uma_version: str
     """
     The version of the UMA protocol that the sender is using.
@@ -88,12 +88,12 @@ class LnurlComplianceResponse(JSONable):
     """
     DER-encoded signature from the receiving VASP.
     """
-    
+
     signature_nonce: str
     """
     A random string included in the signature payload to prevent replay attacks.
     """
-    
+
     signature_timestamp: int
     """
     The time at which the request was made.
@@ -174,13 +174,13 @@ class PayRequest(JSONable):
     """
     The currency code for the currency that the receiver will receive for this payment.
     """
-    
+
     amount: int
     """
     The amount of the payment in the currency specified by `currency_code`. This amount is
     in the smallest unit of the specified currency (e.g. cents for USD).
     """
-    
+
     payer_data: PayerData
     """
     The data about the payer that the sending VASP must provide in order to send a payment.
@@ -227,7 +227,7 @@ class PayReqResponseCompliance(JSONable):
     The URL that the sender will call to send UTXOs of the channels that were used to
     receive the payment once it completes.
     """
-    
+
     node_pubkey: Optional[str]
     """
     The public key of the receiver's Lightning node that will be used to receive the payment.
@@ -283,12 +283,12 @@ class PayReqResponse(JSONable):
     """
     Always just an empty array for legacy reasons.
     """
-    
+
     compliance: PayReqResponseCompliance
     """
     Compliance-related data from the receiving VASP.
     """
-    
+
     payment_info: PayReqResponsePaymentInfo
     """
     Information about the payment that the receiver will receive. Includes
