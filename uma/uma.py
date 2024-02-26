@@ -91,7 +91,7 @@ def verify_pay_request_signature(
 ) -> None:
     compliance_data = compliance_from_payer_data(request.payer_data)
     if not compliance_data:
-        return
+        raise InvalidRequestException("Missing compliance data in request")
 
     _verify_signature(
         request.signable_payload(),
@@ -486,7 +486,7 @@ def verify_uma_lnurlp_response_signature(
     response: LnurlpResponse, other_vasp_signing_pubkey: bytes
 ) -> None:
     if not response.compliance:
-        return
+        raise InvalidRequestException("Missing compliance data in response")
 
     _verify_signature(
         response.signable_payload(),
