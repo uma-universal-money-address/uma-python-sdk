@@ -16,12 +16,39 @@ from uma.urls import is_domain_local
 @dataclass
 class LnurlpRequest:
     receiver_address: str
+    """
+    The UMA address of the receiver.
+    """
+
     nonce: str
+    """
+    A random string included in the signature payload to prevent replay attacks.
+    """
+
     signature: str
+    """
+    DER-encoded signature from the sending VASP.
+    """
+
     is_subject_to_travel_rule: bool
+    """
+    Whether the sending VASP is subject to travel rule regulations.
+    """
+
     vasp_domain: str
+    """
+    The domain of the sending VASP.
+    """
+
     timestamp: datetime
+    """
+    The time at which the request was made.
+    """
+
     uma_version: str
+    """
+    The version of the UMA protocol that the sender is using.
+    """
 
     def encode_to_url(self) -> str:
         try:
@@ -53,24 +80,78 @@ class LnurlpRequest:
 @dataclass
 class LnurlComplianceResponse(JSONable):
     kyc_status: KycStatus
+    """
+    Whether the receiver is KYC verified by the receiving VASP.
+    """
+
     signature: str
+    """
+    DER-encoded signature from the receiving VASP.
+    """
+
     signature_nonce: str
+    """
+    A random string included in the signature payload to prevent replay attacks.
+    """
+
     signature_timestamp: int
+    """
+    The time at which the request was made.
+    """
+
     is_subject_to_travel_rule: bool
+    """
+    Whether the receiving VASP is subject to travel rule regulations.
+    """
+
     receiver_identifier: str
+    """
+    The UMA address of the receiver.
+    """
 
 
 @dataclass
 class LnurlpResponse(JSONable):
     tag: str
     callback: str
+    """
+    The URL that the sender will call for the payreq request.
+    """
+
     min_sendable: int
+    """
+    The minimum amount that the sender can send in millisatoshis.
+    """
+
     max_sendable: int
+    """
+    The maximum amount that the sender can send in millisatoshis.
+    """
+
     encoded_metadata: str
+    """
+    JSON-encoded metadata that the sender can use to display information to the user.
+    """
+
     currencies: List[Currency]
+    """
+    The list of currencies that the receiver accepts in order of preference.
+    """
+
     required_payer_data: PayerDataOptions
+    """
+    The data about the payer that the sending VASP must provide in order to send a payment.
+    """
+
     compliance: LnurlComplianceResponse
+    """
+    Compliance-related data from the receiving VASP.
+    """
+
     uma_version: str
+    """
+    The version of the UMA protocol that the receiver is using.
+    """
 
     @classmethod
     def _get_field_name_overrides(cls) -> Dict[str, str]:
@@ -90,8 +171,21 @@ class LnurlpResponse(JSONable):
 @dataclass
 class PayRequest(JSONable):
     currency_code: str
+    """
+    The currency code for the currency that the receiver will receive for this payment.
+    """
+
     amount: int
+    """
+    The amount of the payment in the currency specified by `currency_code`. This amount is
+    in the smallest unit of the specified currency (e.g. cents for USD).
+    """
+
     payer_data: PayerData
+    """
+    The data about the payer that the sending VASP must provide in order to send a payment.
+    This was requested by the receiver in the lnulp response. See LUD-18.
+    """
 
     def signable_payload(self) -> bytes:
         payloads = [self.payer_data.identifier]
@@ -124,8 +218,20 @@ class Route(JSONable):
 @dataclass
 class PayReqResponseCompliance(JSONable):
     utxos: List[str]
+    """
+    The list of UTXOs of the receiver's channels that might be used to forward the payment.
+    """
+
     utxo_callback: str
+    """
+    The URL that the sender will call to send UTXOs of the channels that were used to
+    receive the payment once it completes.
+    """
+
     node_pubkey: Optional[str]
+    """
+    The public key of the receiver's Lightning node that will be used to receive the payment.
+    """
 
     @classmethod
     def _get_field_name_overrides(cls) -> Dict[str, str]:
@@ -169,9 +275,25 @@ class PayReqResponsePaymentInfo(JSONable):
 @dataclass
 class PayReqResponse(JSONable):
     encoded_invoice: str
+    """
+    The encoded BOLT11 invoice that the sender will use to pay the receiver.
+    """
+
     routes: List[str]
+    """
+    Always just an empty array for legacy reasons.
+    """
+
     compliance: PayReqResponseCompliance
+    """
+    Compliance-related data from the receiving VASP.
+    """
+
     payment_info: PayReqResponsePaymentInfo
+    """
+    Information about the payment that the receiver will receive. Includes
+    Final currency-related information for the payment.
+    """
 
     @classmethod
     def _get_field_name_overrides(cls) -> Dict[str, str]:
