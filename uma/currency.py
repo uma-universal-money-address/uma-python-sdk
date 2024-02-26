@@ -58,11 +58,14 @@ class Currency(JSONable):
 
     def to_dict(self) -> Dict[str, Any]:
         # The max and min sendable fields need to be moved into the convertible struct.
-        dict = super().to_dict()
-        dict.pop("maxSendable")
-        dict.pop("minSendable")
-        dict["convertible"] = {"max": self.max_sendable, "min": self.min_sendable}
-        return dict
+        result_dict = super().to_dict()
+        result_dict.pop("maxSendable")
+        result_dict.pop("minSendable")
+        result_dict["convertible"] = {
+            "max": self.max_sendable,
+            "min": self.min_sendable,
+        }
+        return result_dict
 
     @classmethod
     def _from_dict(cls, json_dict: Dict[str, Any]) -> Dict[str, Any]:

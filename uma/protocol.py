@@ -239,20 +239,20 @@ class PayRequest(JSONable):
         return {"requested_payee_data": "payeeData"}
 
     def to_dict(self) -> Dict[str, Any]:
-        dict = super().to_dict()
+        result_dict = super().to_dict()
         sending_currency = (
-            dict.pop("sendingAmountCurrencyCode")
-            if "sendingAmountCurrencyCode" in dict
+            result_dict.pop("sendingAmountCurrencyCode")
+            if "sendingAmountCurrencyCode" in result_dict
             else None
         )
-        receiving_currency = dict.pop("receivingCurrencyCode")
-        dict["amount"] = (
-            f"{dict['amount']}.{sending_currency}"
+        receiving_currency = result_dict.pop("receivingCurrencyCode")
+        result_dict["amount"] = (
+            f"{result_dict['amount']}.{sending_currency}"
             if sending_currency
-            else str(dict["amount"])
+            else str(result_dict["amount"])
         )
-        dict["convert"] = receiving_currency
-        return dict
+        result_dict["convert"] = receiving_currency
+        return result_dict
 
     @classmethod
     def _from_dict(cls, json_dict: Dict[str, Any]) -> Dict[str, Any]:
