@@ -1,7 +1,7 @@
 # Copyright ©, 2022-present, Lightspark Group, Inc. - All Rights Reserved
 
 from dataclasses import dataclass
-from typing import Dict
+from typing import Any, Dict
 
 from uma.JSONable import JSONable
 
@@ -55,3 +55,20 @@ class Currency(JSONable):
     @classmethod
     def _get_field_name_overrides(cls) -> Dict[str, str]:
         return {"millisatoshi_per_unit": "multiplier"}
+
+    def to_dict(self) -> Dict[str, Any]:
+        # The max and min sendable fields need to be moved into the convertible struct.
+        dict = super().to_dict()
+        dict.pop("maxSendable")
+        dict.pop("minSendable")
+        dict["convertible"] = {"max": self.max_sendable, "min": self.min_sendable}
+        return dict
+
+    @classmethod
+    def _from_dict(cls, json_dict: Dict[str, Any]) -> Dict[str, Any]:
+        # pylint: disable=protected-access
+        data = super()._from_dict(json_dict)
+        convertible = json_dict.pop("convertible")
+        data["max_sendable"] = convertible["max"]
+        data["min_sendable"] = convertible["min"]
+        return data

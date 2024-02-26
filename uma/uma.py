@@ -1,5 +1,6 @@
 # Copyright ©, 2022-present, Lightspark Group, Inc. - All Rights Reserved
 import json
+from math import floor
 import random
 from datetime import datetime, timezone
 from typing import List, Optional
@@ -188,16 +189,39 @@ def create_compliance_payer_data(
 
 
 def create_pay_request(
-    currency_code: str,
+    receiving_currency_code: str,
     amount: int,
+    is_amount_in_receiving_currency: bool,
     payer_identifier: str,
     payer_name: Optional[str],
     payer_email: Optional[str],
     payer_compliance: Optional[CompliancePayerData],
     requested_payee_data: Optional[CounterpartyDataOptions] = None,
 ) -> PayRequest:
+    """
+    Creates a payreq request object.
+
+    Args:
+        receiving_currency_code: The code of the currency that the receiver will receive for this
+            payment.
+        amount: The amount that the receiver will receive in either the smallest unit of the
+            receiving currency (if is_amount_in_receiving_currency is True), or in msats (if false).
+        is_amount_in_receiving_currency: Whether the amount field is specified in the smallest unit
+            of the receiving currency or in msats (if false).
+        payer_identifier: The UMA address of the sender. For example, $alice@vasp.com.
+        payer_name: The name of the sender if requested by the receiver.
+        payer_email: The email of the sender if requested by the receiver.
+        payer_compliance: The compliance data of the sender. This is REQUIRED for UMA payments,
+            but not for regular LNURL payments.
+        requested_payee_data: the additional data about the payee which is requested by the sending
+            VASP, if any.
+    """
+    sending_currency_code = (
+        receiving_currency_code if is_amount_in_receiving_currency else None
+    )
     return PayRequest(
-        currency_code=currency_code,
+        receiving_currency_code=receiving_currency_code,
+        sending_amount_currency_code=sending_currency_code,
         amount=amount,
         payer_data=create_payer_data(
             identifier=payer_identifier,
@@ -318,8 +342,8 @@ def create_pay_req_response(
     request: PayRequest,
     invoice_creator: IUmaInvoiceCreator,
     metadata: str,
-    currency_code: str,
-    currency_decimals: int,
+    receiving_currency_code: str,
+    receiving_currency_decimals: int,
     msats_per_currency_unit: float,
     receiver_fees_msats: int,
     receiver_utxos: List[str],
@@ -336,9 +360,9 @@ def create_pay_req_response(
         request: the uma pay request.This will be used to sign the request.
         invoice_creator: the object that will create the invoice. In practice, this is usually a `services.LightsparkClient`.
         metadata: the metadata that will be added to the invoice's metadata hash field.
-        currency_code: the code of the currency that the receiver will receive for this payment.
-        currency_decimals: the number of decimal places in the specified currency. For example, USD has 2 decimal places. This should align with the decimals field
-            returned for the chosen currency in the LNURLP response.
+        receiving_currency_code: the code of the currency that the receiver will receive for this payment.
+        receiving_currency_decimals: the number of decimal places in the specified currency. For example, USD has 2 decimal
+            places. This should align with the decimals field returned for the chosen currency in the LNURLP response.
         msats_per_currency_unit: milli-satoshis per the smallest unit of the specified currency. This rate is committed to by the receiving VASP until the invoice expires.
         receiver_fees_msats: the fees charged (in millisats) by the receiving VASP to convert to the target currency. This is separate from the conversion rate.
         receiver_utxos: the list of UTXOs of the receiver's channels that might be used to fund the payment.
@@ -348,8 +372,24 @@ def create_pay_req_response(
         signing_private_key: the private key of the VASP that is receiving the payment. This will be used to sign the request.
         payee_data: the additional data about the payee which was requested in the pay request by the sending VASP, if any.
     """
-
-    amount_msats = request.amount * msats_per_currency_unit + receiver_fees_msats
+    if (
+        request.sending_amount_currency_code
+        and request.sending_amount_currency_code != receiving_currency_code
+    ):
+        raise InvalidCurrencyException(
+            "The sending currency code in the pay request does not match the receiving currency code."
+        )
+    sending_currency = request.sending_amount_currency_code
+    amount_msats = (
+        request.amount
+        if sending_currency is None
+        else request.amount * msats_per_currency_unit + receiver_fees_msats
+    )
+    receiving_amount = (
+        request.amount
+        if sending_currency is not None
+        else floor((request.amount - receiver_fees_msats) / msats_per_currency_unit)
+    )
     metadata += json.dumps(request.payer_data)
     encoded_invoice = invoice_creator.create_uma_invoice(
         amount_msats=round(amount_msats),
@@ -372,8 +412,9 @@ def create_pay_req_response(
         routes=[],
         payee_data=payee_data,
         payment_info=PayReqResponsePaymentInfo(
-            currency_code=currency_code,
-            decimals=currency_decimals,
+            amount=receiving_amount,
+            currency_code=receiving_currency_code,
+            decimals=receiving_currency_decimals,
             multiplier=msats_per_currency_unit,
             exchange_fees_msats=receiver_fees_msats,
         ),

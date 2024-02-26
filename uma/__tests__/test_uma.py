@@ -1,6 +1,7 @@
 # Copyright ©, 2022-present, Lightspark Group, Inc. - All Rights Reserved
 
 import json
+from math import floor
 import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Tuple
@@ -93,7 +94,8 @@ def test_pay_request_create_and_parse() -> None:
         utxo_callback=utxo_callback,
     )
     pay_request = create_pay_request(
-        currency_code=currency_code,
+        receiving_currency_code=currency_code,
+        is_amount_in_receiving_currency=True,
         amount=amount,
         payer_identifier=payer_identifier,
         payer_name=None,
@@ -128,23 +130,23 @@ def test_pay_request_create_and_parse() -> None:
 
 
 def test_lnurlp_query_missing_params() -> None:
-    url = "https://vasp2.com/.well-known/lnurlp/bob?nonce=12345&vaspDomain=vasp1.com&umaVersion=0.1&isSubjectToTravelRule=true&timestamp=12345678"
+    url = "https://vasp2.com/.well-known/lnurlp/bob?nonce=12345&vaspDomain=vasp1.com&umaVersion=1.0&isSubjectToTravelRule=true&timestamp=12345678"
     assert not is_uma_lnurlp_query(url)
 
-    url = "https://vasp2.com/.well-known/lnurlp/bob?signature=signature&vaspDomain=vasp1.com&umaVersion=0.1&isSubjectToTravelRule=true&timestamp=12345678"
+    url = "https://vasp2.com/.well-known/lnurlp/bob?signature=signature&vaspDomain=vasp1.com&umaVersion=1.0&isSubjectToTravelRule=true&timestamp=12345678"
     assert not is_uma_lnurlp_query(url)
 
-    url = "https://vasp2.com/.well-known/lnurlp/bob?signature=signature&nonce=12345&umaVersion=0.1&isSubjectToTravelRule=true&timestamp=12345678"
+    url = "https://vasp2.com/.well-known/lnurlp/bob?signature=signature&nonce=12345&umaVersion=1.0&isSubjectToTravelRule=true&timestamp=12345678"
     assert not is_uma_lnurlp_query(url)
 
     # isSubjectToTravelRule is optional
-    url = "https://vasp2.com/.well-known/lnurlp/bob?signature=signature&nonce=12345&vaspDomain=vasp1.com&timestamp=12345678&umaVersion=0.1"
+    url = "https://vasp2.com/.well-known/lnurlp/bob?signature=signature&nonce=12345&vaspDomain=vasp1.com&timestamp=12345678&umaVersion=1.0"
     assert is_uma_lnurlp_query(url)
 
     url = "https://vasp2.com/.well-known/lnurlp/bob?signature=signature&nonce=12345&vaspDomain=vasp1.com&timestamp=12345678"
     assert not is_uma_lnurlp_query(url)
 
-    url = "https://vasp2.com/.well-known/lnurlp/bob?signature=signature&nonce=12345&vaspDomain=vasp1.com&umaVersion=0.1&isSubjectToTravelRule=true"
+    url = "https://vasp2.com/.well-known/lnurlp/bob?signature=signature&nonce=12345&vaspDomain=vasp1.com&umaVersion=1.0&isSubjectToTravelRule=true"
     assert not is_uma_lnurlp_query(url)
 
     url = "https://vasp2.com/.well-known/lnurlp/bob"
@@ -152,13 +154,13 @@ def test_lnurlp_query_missing_params() -> None:
 
 
 def test_lnurlp_query_invalid_path() -> None:
-    url = "https://vasp2.com/.well-known/lnurla/bob?signature=signature&nonce=12345&vaspDomain=vasp1.com&umaVersion=0.1&isSubjectToTravelRule=true&timestamp=12345678"
+    url = "https://vasp2.com/.well-known/lnurla/bob?signature=signature&nonce=12345&vaspDomain=vasp1.com&umaVersion=1.0&isSubjectToTravelRule=true&timestamp=12345678"
     assert not is_uma_lnurlp_query(url)
 
-    url = "https://vasp2.com/bob?signature=signature&nonce=12345&vaspDomain=vasp1.com&umaVersion=0.1&isSubjectToTravelRule=true&timestamp=12345678"
+    url = "https://vasp2.com/bob?signature=signature&nonce=12345&vaspDomain=vasp1.com&umaVersion=1.0&isSubjectToTravelRule=true&timestamp=12345678"
     assert not is_uma_lnurlp_query(url)
 
-    url = "https://vasp2.com/?signature=signature&nonce=12345&vaspDomain=vasp1.com&umaVersion=0.1&isSubjectToTravelRule=true&timestamp=12345678"
+    url = "https://vasp2.com/?signature=signature&nonce=12345&vaspDomain=vasp1.com&umaVersion=1.0&isSubjectToTravelRule=true&timestamp=12345678"
     assert not is_uma_lnurlp_query(url)
 
 
@@ -194,12 +196,14 @@ def test_lnurlp_request_url_create_and_parse() -> None:
 
 class DummyUmaInvoiceCreator(IUmaInvoiceCreator):
     DUMMY_INVOICE = "DUMMY_INVOICE"
+    last_requested_invoice_amount = 0
 
     def create_uma_invoice(
         self,
         amount_msats: int,
         metadata: str,
     ) -> str:
+        self.last_requested_invoice_amount = amount_msats
         return self.DUMMY_INVOICE
 
 
@@ -219,7 +223,8 @@ def test_pay_req_response_create_and_parse() -> None:
     sender_utxo_callback = "/sender_api/lnurl/utxocallback?txid=1234"
     node_pubkey = "dummy_node_key"
     pay_request = create_pay_request(
-        currency_code=currency_code,
+        receiving_currency_code=currency_code,
+        is_amount_in_receiving_currency=True,
         amount=amount,
         payer_identifier=payer_identifier,
         payer_name=None,
@@ -247,8 +252,8 @@ def test_pay_req_response_create_and_parse() -> None:
         request=pay_request,
         invoice_creator=invoice_creator,
         metadata=_create_metadata(),
-        currency_code=currency_code,
-        currency_decimals=currency_decimals,
+        receiving_currency_code=currency_code,
+        receiving_currency_decimals=currency_decimals,
         msats_per_currency_unit=msats_per_currency_unit,
         receiver_fees_msats=receiver_fees_msats,
         receiver_utxos=receiver_utxos,
@@ -265,6 +270,88 @@ def test_pay_req_response_create_and_parse() -> None:
     assert compliance.utxo_callback == receiver_utxo_callback
     assert compliance.utxos == receiver_utxos
     assert compliance.node_pubkey == receiver_node_pubkey
+    assert response.payment_info.currency_code == currency_code
+    assert response.payment_info.decimals == currency_decimals
+    assert response.payment_info.multiplier == msats_per_currency_unit
+    assert response.payment_info.exchange_fees_msats == receiver_fees_msats
+    verify_pay_req_response_signature(
+        sender_address="$alice@vasp1.com",
+        receiver_address="$bob@vasp2.com",
+        response=response,
+        other_vasp_signing_pubkey=receiver_signing_public_key_bytes,
+    )
+
+
+def test_pay_req_with_locked_sending_amount() -> None:
+    sender_signing_private_key_bytes, _ = _create_key_pair()
+    _, receiver_encryption_public_key_bytes = _create_key_pair()
+    (
+        receiver_signing_private_key_bytes,
+        receiver_signing_public_key_bytes,
+    ) = _create_key_pair()
+
+    travel_rule_info = "some TR info for VASP2"
+    currency_code = "USD"
+    amount_msats = 1_000_000
+    payer_identifier = "$alice@vasp1.com"
+    payer_kyc_status = KycStatus.VERIFIED
+    sender_utxo_callback = "/sender_api/lnurl/utxocallback?txid=1234"
+    node_pubkey = "dummy_node_key"
+    pay_request = create_pay_request(
+        receiving_currency_code=currency_code,
+        is_amount_in_receiving_currency=False,
+        amount=amount_msats,
+        payer_identifier=payer_identifier,
+        payer_name=None,
+        payer_email=None,
+        payer_compliance=create_compliance_payer_data(
+            signing_private_key=sender_signing_private_key_bytes,
+            receiver_encryption_pubkey=receiver_encryption_public_key_bytes,
+            payer_identifier=payer_identifier,
+            travel_rule_info=travel_rule_info,
+            payer_kyc_status=payer_kyc_status,
+            payer_utxos=["abcdef12345"],
+            payer_node_pubkey=node_pubkey,
+            utxo_callback=sender_utxo_callback,
+        ),
+    )
+
+    assert pay_request.amount == amount_msats
+    assert pay_request.sending_amount_currency_code is None
+
+    msats_per_currency_unit = 24_150
+    receiver_fees_msats = 2_000
+    currency_decimals = 2
+    receiver_utxos = ["abcdef12345"]
+    receiver_utxo_callback = "/receiver_api/lnurl/utxocallback?txid=1234"
+    receiver_node_pubkey = "dummy_pub_key"
+    invoice_creator = DummyUmaInvoiceCreator()
+    response = create_pay_req_response(
+        request=pay_request,
+        invoice_creator=invoice_creator,
+        metadata=_create_metadata(),
+        receiving_currency_code=currency_code,
+        receiving_currency_decimals=currency_decimals,
+        msats_per_currency_unit=msats_per_currency_unit,
+        receiver_fees_msats=receiver_fees_msats,
+        receiver_utxos=receiver_utxos,
+        receiver_node_pubkey=receiver_node_pubkey,
+        utxo_callback=receiver_utxo_callback,
+        payee_identifier="$bob@vasp2.com",
+        signing_private_key=receiver_signing_private_key_bytes,
+    )
+
+    assert response == parse_pay_req_response(response.to_json())
+    assert invoice_creator.last_requested_invoice_amount == amount_msats
+    assert response.encoded_invoice == invoice_creator.DUMMY_INVOICE
+    compliance = compliance_from_payee_data(response.payee_data)
+    assert compliance is not None
+    assert compliance.utxo_callback == receiver_utxo_callback
+    assert compliance.utxos == receiver_utxos
+    assert compliance.node_pubkey == receiver_node_pubkey
+    assert response.payment_info.amount == floor(
+        (amount_msats - receiver_fees_msats) / msats_per_currency_unit
+    )
     assert response.payment_info.currency_code == currency_code
     assert response.payment_info.decimals == currency_decimals
     assert response.payment_info.multiplier == msats_per_currency_unit
@@ -385,7 +472,60 @@ def test_high_signature_normalization() -> None:
         "047d37ce263a855ff49eb2a537a77a369a861507687bfde1df40062c8774488d644455a44baeb5062b79907d2e6f9692dd5b7bd7c37a3721ba21378d3594672063"
     )
 
-    lnurlp_request_url = "https://uma.jeremykle.in/.well-known/lnurlp/$jeremy?isSubjectToTravelRule=true&nonce=2734010273&signature=30450220694fce49a32c81a58ddb0090ebdd4c7ff3a1e277d28570c61bf2b8274b5d8286022100fe6f0318579e12726531c8a63aea6a94f59f46b7679f970df33f7750a0d88f36&timestamp=1701461443&umaVersion=0.1&vaspDomain=api.ltng.bakkt.com"
+    lnurlp_request_url = "https://uma.jeremykle.in/.well-known/lnurlp/$jeremy?isSubjectToTravelRule=true&nonce=2734010273&signature=30450220694fce49a32c81a58ddb0090ebdd4c7ff3a1e277d28570c61bf2b8274b5d8286022100fe6f0318579e12726531c8a63aea6a94f59f46b7679f970df33f7750a0d88f36&timestamp=1701461443&umaVersion=1.0&vaspDomain=api.ltng.bakkt.com"
     lnurlp_request = parse_lnurlp_request(lnurlp_request_url)
 
     verify_uma_lnurlp_query_signature(lnurlp_request, pub_key_bytes)
+
+
+def test_currency_serialization() -> None:
+    currency = Currency(
+        code="USD",
+        name="US Dollar",
+        symbol="$",
+        millisatoshi_per_unit=34_150,
+        max_sendable=10_000_000,
+        min_sendable=1,
+        decimals=2,
+    )
+    currency_json = currency.to_json()
+    currency_dict = json.loads(currency_json)
+    assert currency_dict["convertible"]["max"] == currency.max_sendable
+    assert currency_dict["convertible"]["min"] == currency.min_sendable
+    assert currency == Currency.from_json(currency_json)
+
+
+def test_payreq_serialization_in_receiving_currency() -> None:
+    currency_code = "USD"
+    amount = 100
+    payer_identifier = "$alice@vasp.com"
+    pay_request = create_pay_request(
+        receiving_currency_code=currency_code,
+        is_amount_in_receiving_currency=True,
+        amount=amount,
+        payer_identifier=payer_identifier,
+        payer_name="Alice",
+        payer_email=None,
+        payer_compliance=None,
+    )
+    payreq_json = json.loads(pay_request.to_json())
+    assert payreq_json["amount"] == "100.USD"
+    assert payreq_json["convert"] == "USD"
+
+
+def test_payreq_serialization_in_msats() -> None:
+    currency_code = "USD"
+    amount_msats = 100_000_000
+    payer_identifier = "$alice@vasp.com"
+    pay_request = create_pay_request(
+        receiving_currency_code=currency_code,
+        is_amount_in_receiving_currency=False,
+        amount=amount_msats,
+        payer_identifier=payer_identifier,
+        payer_name="Alice",
+        payer_email=None,
+        payer_compliance=None,
+    )
+    payreq_json = json.loads(pay_request.to_json())
+    assert payreq_json["amount"] == str(amount_msats)
+    assert payreq_json["convert"] == "USD"

@@ -172,7 +172,29 @@ class LnurlpResponse(JSONable):
 
 @dataclass
 class PayRequest(JSONable):
-    currency_code: str
+    sending_amount_currency_code: Optional[str]
+    """
+    The currency code of the `amount` field. `None` indicates that `amount` is in millisatoshis
+    as in LNURL without LUD-21. If this is not `None`, then `amount` is in the smallest unit of
+    the specified currency (e.g. cents for USD). This currency code can be any currency which
+    the receiver can quote. However, there are two most common scenarios for UMA:
+
+    1. If the sender wants the receiver wants to receive a specific amount in their receiving
+    currency, then this field should be the same as `receiving_currency_code`. This is useful
+    for cases where the sender wants to ensure that the receiver receives a specific amount
+    in that destination currency, regardless of the exchange rate, for example, when paying
+    for some goods or services in a foreign currency.
+
+    2. If the sender has a specific amount in their own currency that they would like to send,
+    then this field should be left as `None` to indicate that the amount is in millisatoshis.
+    This will lock the sent amount on the sender side, and the receiver will receive the
+    equivalent amount in their receiving currency. NOTE: In this scenario, the sending VASP
+    *should not* pass the sending currency code here, as it is not relevant to the receiver.
+    Rather, by specifying an invoice amount in msats, the sending VASP can ensure that their
+    user will be sending a fixed amount, regardless of the exchange rate on the receiving side.
+    """
+
+    receiving_currency_code: str
     """
     The currency code for the currency that the receiver will receive for this payment.
     """
@@ -214,7 +236,38 @@ class PayRequest(JSONable):
 
     @classmethod
     def _get_field_name_overrides(cls) -> Dict[str, str]:
-        return {"currency_code": "currency", "requested_payee_data": "payeeData"}
+        return {"requested_payee_data": "payeeData"}
+
+    def to_dict(self) -> Dict[str, Any]:
+        dict = super().to_dict()
+        sending_currency = (
+            dict.pop("sendingAmountCurrencyCode")
+            if "sendingAmountCurrencyCode" in dict
+            else None
+        )
+        receiving_currency = dict.pop("receivingCurrencyCode")
+        dict["amount"] = (
+            f"{dict['amount']}.{sending_currency}"
+            if sending_currency
+            else str(dict["amount"])
+        )
+        dict["convert"] = receiving_currency
+        return dict
+
+    @classmethod
+    def _from_dict(cls, json_dict: Dict[str, Any]) -> Dict[str, Any]:
+        data = super()._from_dict(json_dict)
+        if "convert" in json_dict:
+            data["receiving_currency_code"] = json_dict.pop("convert")
+        if "amount" in data:
+            amount = data.pop("amount")
+            if "." in amount:
+                [amount, currency] = amount.split(".")
+                data["amount"] = int(amount)
+                data["sending_amount_currency_code"] = currency
+            else:
+                data["amount"] = int(amount)
+        return data
 
 
 @dataclass
@@ -233,6 +286,12 @@ class Route(JSONable):
 
 @dataclass
 class PayReqResponsePaymentInfo(JSONable):
+    amount: int
+    """
+    The amount that the receiver will receive in the receiving currency not including fees. The amount is specified
+    in the smallest unit of the currency (eg. cents for USD).
+    """
+
     currency_code: str
     """
     The currency code that the receiver will receive for this payment.
@@ -252,7 +311,7 @@ class PayReqResponsePaymentInfo(JSONable):
     The conversion rate. It is the number of millisatoshis that the receiver will receive for 1
     unit of the specified currency (eg: cents in USD). In this context, this is just for convenience. The conversion
     rate is also baked into the invoice amount itself. Specifically:
-    `invoiceAmount = amount * multiplier + exchangeFeesMillisatoshi`
+    `invoiceAmount = amount * multiplier + exchange_fees_msats`
     """
 
     exchange_fees_msats: int
@@ -262,7 +321,7 @@ class PayReqResponsePaymentInfo(JSONable):
 
     @classmethod
     def _get_field_name_overrides(cls) -> Dict[str, str]:
-        return {"exchange_fees_msats": "exchangeFeesMillisatoshi"}
+        return {"exchange_fees_msats": "fee"}
 
 
 @dataclass
@@ -290,7 +349,7 @@ class PayReqResponse(JSONable):
 
     @classmethod
     def _get_field_name_overrides(cls) -> Dict[str, str]:
-        return {"encoded_invoice": "pr"}
+        return {"encoded_invoice": "pr", "payment_info": "converted"}
 
 
 @dataclass
