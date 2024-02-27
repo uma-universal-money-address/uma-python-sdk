@@ -12,6 +12,7 @@ from uma.JSONable import JSONable
 from uma.kyc_status import KycStatus
 from uma.payee_data import PayeeData
 from uma.payer_data import PayerData, compliance_from_payer_data
+from uma.type_utils import none_throws
 from uma.urls import is_domain_local
 
 
@@ -19,35 +20,35 @@ from uma.urls import is_domain_local
 class LnurlpRequest:
     receiver_address: str
     """
-    The UMA address of the receiver.
+    The UMA or Lightning address of the receiver.
     """
 
-    nonce: str
+    nonce: Optional[str]
     """
     A random string included in the signature payload to prevent replay attacks.
     """
 
-    signature: str
+    signature: Optional[str]
     """
     DER-encoded signature from the sending VASP.
     """
 
-    is_subject_to_travel_rule: bool
+    is_subject_to_travel_rule: Optional[bool]
     """
     Whether the sending VASP is subject to travel rule regulations.
     """
 
-    vasp_domain: str
+    vasp_domain: Optional[str]
     """
     The domain of the sending VASP.
     """
 
-    timestamp: datetime
+    timestamp: Optional[datetime]
     """
     The time at which the request was made.
     """
 
-    uma_version: str
+    uma_version: Optional[str]
     """
     The version of the UMA protocol that the sender is using.
     """
@@ -61,22 +62,37 @@ class LnurlpRequest:
             ) from ex
 
         scheme = "http" if is_domain_local(host) else "https"
-        base_url = f"{scheme}://{host}/.well-known/lnurlp/{identifier}?"
+        base_url = f"{scheme}://{host}/.well-known/lnurlp/{identifier}"
+        if not self.is_uma_request():
+            return base_url
         params = {
             "signature": self.signature,
             "vaspDomain": self.vasp_domain,
             "nonce": self.nonce,
             "isSubjectToTravelRule": str(self.is_subject_to_travel_rule).lower(),
-            "timestamp": int(self.timestamp.timestamp()),
+            "timestamp": int(none_throws(self.timestamp).timestamp()),
             "umaVersion": self.uma_version,
         }
-        return base_url + urlencode(params)
+        return f"{base_url}?{urlencode(params)}"
 
     def signable_payload(self) -> bytes:
+        if not self.nonce or not self.timestamp:
+            raise InvalidRequestException(
+                "nonce and timestamp are required for signing. This is not an UMA request."
+            )
         signable = "|".join(
             [self.receiver_address, self.nonce, str(int(self.timestamp.timestamp()))]
         )
         return signable.encode("utf8")
+
+    def is_uma_request(self) -> bool:
+        return (
+            self.uma_version is not None
+            and self.signature is not None
+            and self.nonce is not None
+            and self.timestamp is not None
+            and self.is_subject_to_travel_rule is not None
+        )
 
 
 @dataclass
@@ -135,22 +151,22 @@ class LnurlpResponse(JSONable):
     JSON-encoded metadata that the sender can use to display information to the user.
     """
 
-    currencies: List[Currency]
+    currencies: Optional[List[Currency]]
     """
     The list of currencies that the receiver accepts in order of preference.
     """
 
-    required_payer_data: CounterpartyDataOptions
+    required_payer_data: Optional[CounterpartyDataOptions]
     """
     The data about the payer that the sending VASP must provide in order to send a payment.
     """
 
-    compliance: LnurlComplianceResponse
+    compliance: Optional[LnurlComplianceResponse]
     """
     Compliance-related data from the receiving VASP.
     """
 
-    uma_version: str
+    uma_version: Optional[str]
     """
     The version of the UMA protocol that the receiver is using.
     """
@@ -159,7 +175,14 @@ class LnurlpResponse(JSONable):
     def _get_field_name_overrides(cls) -> Dict[str, str]:
         return {"encoded_metadata": "metadata", "required_payer_data": "payerData"}
 
+    def is_uma_response(self) -> bool:
+        return self.uma_version is not None and self.compliance is not None
+
     def signable_payload(self) -> bytes:
+        if not self.compliance:
+            raise InvalidRequestException(
+                "compliance field is required for signing or verifying."
+            )
         signable = "|".join(
             [
                 self.compliance.receiver_identifier,
@@ -194,7 +217,7 @@ class PayRequest(JSONable):
     user will be sending a fixed amount, regardless of the exchange rate on the receiving side.
     """
 
-    receiving_currency_code: str
+    receiving_currency_code: Optional[str]
     """
     The currency code for the currency that the receiver will receive for this payment.
     """
@@ -205,7 +228,7 @@ class PayRequest(JSONable):
     in the smallest unit of the specified currency (e.g. cents for USD).
     """
 
-    payer_data: PayerData
+    payer_data: Optional[PayerData]
     """
     The data about the payer that the sending VASP must provide in order to send a payment.
     This was requested by the receiver in the lnulp response. See LUD-18.
@@ -226,13 +249,16 @@ class PayRequest(JSONable):
                 "identifier is required in payerdata for uma."
             )
         payloads = [payer_identifier]
-        compliance = compliance_from_payer_data(self.payer_data)
+        compliance = compliance_from_payer_data(none_throws(self.payer_data))
         if compliance:
             payloads += [
                 compliance.signature_nonce,
                 str(compliance.signature_timestamp),
             ]
         return "|".join(payloads).encode("utf8")
+
+    def is_uma_request(self) -> bool:
+        return self.payer_data is not None and "compliance" in self.payer_data
 
     @classmethod
     def _get_field_name_overrides(cls) -> Dict[str, str]:
@@ -245,13 +271,14 @@ class PayRequest(JSONable):
             if "sendingAmountCurrencyCode" in result_dict
             else None
         )
-        receiving_currency = result_dict.pop("receivingCurrencyCode")
+        if self.receiving_currency_code is not None:
+            receiving_currency = result_dict.pop("receivingCurrencyCode")
+            result_dict["convert"] = receiving_currency
         result_dict["amount"] = (
             f"{result_dict['amount']}.{sending_currency}"
-            if sending_currency
+            if sending_currency and sending_currency.upper() != "SAT"
             else str(result_dict["amount"])
         )
-        result_dict["convert"] = receiving_currency
         return result_dict
 
     @classmethod
@@ -336,12 +363,12 @@ class PayReqResponse(JSONable):
     Always just an empty array for legacy reasons.
     """
 
-    payee_data: PayeeData
+    payee_data: Optional[PayeeData]
     """
     The data about the receiver that the sending VASP requested in the payreq request.
     """
 
-    payment_info: PayReqResponsePaymentInfo
+    payment_info: Optional[PayReqResponsePaymentInfo]
     """
     Information about the payment that the receiver will receive. Includes
     Final currency-related information for the payment.
@@ -350,6 +377,13 @@ class PayReqResponse(JSONable):
     @classmethod
     def _get_field_name_overrides(cls) -> Dict[str, str]:
         return {"encoded_invoice": "pr", "payment_info": "converted"}
+
+    def is_uma_response(self) -> bool:
+        return (
+            self.payee_data is not None
+            and "compliance" in self.payee_data
+            and self.payment_info is not None
+        )
 
 
 @dataclass

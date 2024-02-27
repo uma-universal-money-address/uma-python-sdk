@@ -18,10 +18,11 @@ from uma.kyc_status import KycStatus
 from uma.payee_data import compliance_from_payee_data
 from uma.payer_data import compliance_from_payer_data
 from uma.public_key_cache import InMemoryPublicKeyCache, PubkeyResponse
+from uma.type_utils import none_throws
 from uma.uma import (
     create_compliance_payer_data,
-    create_lnurlp_request_url,
-    create_lnurlp_response,
+    create_uma_lnurlp_request_url,
+    create_uma_lnurlp_response,
     create_pay_req_response,
     create_pay_request,
     fetch_public_key_for_vasp,
@@ -108,7 +109,7 @@ def test_pay_request_create_and_parse() -> None:
     assert pay_request == result_pay_request
     verify_pay_request_signature(pay_request, sender_signing_public_key_bytes)
 
-    compliance_dict = result_pay_request.payer_data.get("compliance")
+    compliance_dict = none_throws(result_pay_request.payer_data).get("compliance")
     assert compliance_dict is not None
     # test invalid signature
     compliance_dict["signature"] = secrets.token_hex()
@@ -118,7 +119,7 @@ def test_pay_request_create_and_parse() -> None:
         )
 
     # verify encryption
-    compliance = compliance_from_payer_data(result_pay_request.payer_data)
+    compliance = compliance_from_payer_data(none_throws(result_pay_request.payer_data))
     assert compliance is not None
     encrypted_travel_rule_info = compliance.encrypted_travel_rule_info
     assert encrypted_travel_rule_info is not None
@@ -174,7 +175,7 @@ def test_lnurlp_request_url_create_and_parse() -> None:
     sender_vasp_domain = "vasp1.com"
     is_subject_to_travel_rule = False
 
-    url = create_lnurlp_request_url(
+    url = create_uma_lnurlp_request_url(
         signing_private_key=sender_signing_private_key_bytes,
         receiver_address=receiver_address,
         sender_vasp_domain=sender_vasp_domain,
@@ -265,15 +266,17 @@ def test_pay_req_response_create_and_parse() -> None:
 
     assert response == parse_pay_req_response(response.to_json())
     assert response.encoded_invoice == invoice_creator.DUMMY_INVOICE
-    compliance = compliance_from_payee_data(response.payee_data)
+    compliance = compliance_from_payee_data(none_throws(response.payee_data))
     assert compliance is not None
     assert compliance.utxo_callback == receiver_utxo_callback
     assert compliance.utxos == receiver_utxos
     assert compliance.node_pubkey == receiver_node_pubkey
-    assert response.payment_info.currency_code == currency_code
-    assert response.payment_info.decimals == currency_decimals
-    assert response.payment_info.multiplier == msats_per_currency_unit
-    assert response.payment_info.exchange_fees_msats == receiver_fees_msats
+    payment_info = response.payment_info
+    assert payment_info is not None
+    assert payment_info.currency_code == currency_code
+    assert payment_info.decimals == currency_decimals
+    assert payment_info.multiplier == msats_per_currency_unit
+    assert payment_info.exchange_fees_msats == receiver_fees_msats
     verify_pay_req_response_signature(
         sender_address="$alice@vasp1.com",
         receiver_address="$bob@vasp2.com",
@@ -344,18 +347,20 @@ def test_pay_req_with_locked_sending_amount() -> None:
     assert response == parse_pay_req_response(response.to_json())
     assert invoice_creator.last_requested_invoice_amount == amount_msats
     assert response.encoded_invoice == invoice_creator.DUMMY_INVOICE
-    compliance = compliance_from_payee_data(response.payee_data)
+    compliance = compliance_from_payee_data(none_throws(response.payee_data))
     assert compliance is not None
     assert compliance.utxo_callback == receiver_utxo_callback
     assert compliance.utxos == receiver_utxos
     assert compliance.node_pubkey == receiver_node_pubkey
-    assert response.payment_info.amount == floor(
+    payment_info = response.payment_info
+    assert payment_info is not None
+    assert payment_info.amount == floor(
         (amount_msats - receiver_fees_msats) / msats_per_currency_unit
     )
-    assert response.payment_info.currency_code == currency_code
-    assert response.payment_info.decimals == currency_decimals
-    assert response.payment_info.multiplier == msats_per_currency_unit
-    assert response.payment_info.exchange_fees_msats == receiver_fees_msats
+    assert payment_info.currency_code == currency_code
+    assert payment_info.decimals == currency_decimals
+    assert payment_info.multiplier == msats_per_currency_unit
+    assert payment_info.exchange_fees_msats == receiver_fees_msats
     verify_pay_req_response_signature(
         sender_address="$alice@vasp1.com",
         receiver_address="$bob@vasp2.com",
@@ -380,7 +385,7 @@ def test_lnurlp_response_create_and_parse() -> None:
     ) = _create_key_pair()
 
     receiver_address = "bob@vasp2.com"
-    lnurlp_request_url = create_lnurlp_request_url(
+    lnurlp_request_url = create_uma_lnurlp_request_url(
         signing_private_key=sender_signing_private_key_bytes,
         receiver_address=receiver_address,
         sender_vasp_domain="vasp1.com",
@@ -407,7 +412,7 @@ def test_lnurlp_response_create_and_parse() -> None:
     ]
     is_subject_to_travel_rule = True
     receiver_kyc_status = KycStatus.VERIFIED
-    response = create_lnurlp_response(
+    response = create_uma_lnurlp_response(
         request=lnurlp_request,
         signing_private_key=receiver_signing_private_key_bytes,
         requires_travel_rule_info=is_subject_to_travel_rule,
@@ -430,19 +435,18 @@ def test_lnurlp_response_create_and_parse() -> None:
     assert result_response.currencies == currencies
     assert result_response.currencies == currencies
     assert result_response.required_payer_data == payer_data_options
-    assert result_response.compliance.kyc_status == receiver_kyc_status
-    assert (
-        result_response.compliance.is_subject_to_travel_rule
-        == is_subject_to_travel_rule
-    )
-    assert result_response.compliance.receiver_identifier == receiver_address
+    compliance = result_response.compliance
+    assert compliance is not None
+    assert compliance.kyc_status == receiver_kyc_status
+    assert compliance.is_subject_to_travel_rule == is_subject_to_travel_rule
+    assert compliance.receiver_identifier == receiver_address
 
     verify_uma_lnurlp_response_signature(
         result_response, receiver_signing_public_key_bytes
     )
 
     # test invalid signature
-    result_response.compliance.signature = secrets.token_hex()
+    compliance.signature = secrets.token_hex()
     with pytest.raises(InvalidSignatureException):
         verify_uma_lnurlp_response_signature(
             result_response, receiver_signing_public_key_bytes
@@ -454,7 +458,7 @@ def test_invalid_lnurlp_signature() -> None:
     _, different_signing_key_public = _create_key_pair()
 
     receiver_address = "bob@vasp2.com"
-    lnurlp_request_url = create_lnurlp_request_url(
+    lnurlp_request_url = create_uma_lnurlp_request_url(
         signing_private_key=sender_signing_private_key_bytes,
         receiver_address=receiver_address,
         sender_vasp_domain="vasp1.com",

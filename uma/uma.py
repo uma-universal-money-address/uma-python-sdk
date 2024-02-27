@@ -39,6 +39,7 @@ from uma.protocol import (
     PubkeyResponse,
 )
 from uma.public_key_cache import IPublicKeyCache
+from uma.type_utils import none_throws
 from uma.uma_invoice_creator import IUmaInvoiceCreator
 from uma.urls import is_domain_local
 from uma.version import (
@@ -90,6 +91,11 @@ def _sign_payload(payload: bytes, private_key: bytes) -> str:
 def verify_pay_request_signature(
     request: PayRequest, other_vasp_signing_pubkey: bytes
 ) -> None:
+    if not request.payer_data:
+        raise InvalidRequestException(
+            "UMA requires payer data in request. For regular LNURL requests, "
+            + "payer data is optional and signatures should not be checked."
+        )
     compliance_data = compliance_from_payer_data(request.payer_data)
     if not compliance_data:
         raise InvalidRequestException("Missing compliance data in request")
@@ -237,7 +243,7 @@ def parse_pay_request(payload: str) -> PayRequest:
     return PayRequest.from_json(payload)
 
 
-def create_lnurlp_request_url(
+def create_uma_lnurlp_request_url(
     signing_private_key: bytes,
     receiver_address: str,
     sender_vasp_domain: str,
@@ -271,24 +277,28 @@ def create_lnurlp_request_url(
 def parse_lnurlp_request(url: str) -> LnurlpRequest:
     parsed_url = urlparse(url)
     query = parse_qs(parsed_url.query, keep_blank_values=True)
-    signature = query.get("signature", [""])[0]
-    vasp_domain = query.get("vaspDomain", [""])[0]
-    nonce = query.get("nonce", [""])[0]
-    timestamp = query.get("timestamp", [""])[0]
-    uma_version = query.get("umaVersion", [""])[0]
+    signature = query.get("signature", [""])[0] if query.get("signature") else None
+    vasp_domain = query.get("vaspDomain", [""])[0] if query.get("vaspDomain") else None
+    nonce = query.get("nonce", [""])[0] if query.get("nonce") else None
+    timestamp = query.get("timestamp", [""])[0] if query.get("timestamp") else None
+    uma_version = query.get("umaVersion", [""])[0] if query.get("umaVersion") else None
 
-    if (
-        not signature
-        or not vasp_domain
-        or not nonce
-        or not timestamp
-        or not uma_version
-    ):
+    required_uma_fields = {
+        "signature": signature,
+        "vasp_domain": vasp_domain,
+        "nonce": nonce,
+        "timestamp": timestamp,
+        "uma_version": uma_version,
+    }
+    # UMA fields are all or nothing. If any are present, all must be present.
+    has_an_uma_field = any(required_uma_fields.values())
+    has_all_uma_fields = all(required_uma_fields.values())
+    if has_an_uma_field and not has_all_uma_fields:
         raise InvalidRequestException(
             "Missing uma query parameters: vaspDomain, signature, nonce, uma_version, and timestamp are required."
         )
 
-    if not is_version_supported(uma_version):
+    if uma_version and not is_version_supported(uma_version):
         raise UnsupportedVersionException(
             unsupported_version=uma_version,
             supported_major_versions=get_supported_major_versions(),
@@ -296,7 +306,7 @@ def parse_lnurlp_request(url: str) -> LnurlpRequest:
 
     paths = parsed_url.path.split("/")
     if len(paths) != 4 or paths[1] != ".well-known" or paths[2] != "lnurlp":
-        raise InvalidRequestException("Invalid uma request path.")
+        raise InvalidRequestException("Invalid request path.")
 
     receiver_address = paths[3] + "@" + parsed_url.netloc
     is_subject_to_travel_rule = (
@@ -309,15 +319,17 @@ def parse_lnurlp_request(url: str) -> LnurlpRequest:
         signature=signature,
         is_subject_to_travel_rule=is_subject_to_travel_rule,
         vasp_domain=vasp_domain,
-        timestamp=datetime.fromtimestamp(int(timestamp), timezone.utc),
+        timestamp=(
+            datetime.fromtimestamp(int(timestamp), timezone.utc) if timestamp else None
+        ),
         uma_version=uma_version,
     )
 
 
 def is_uma_lnurlp_query(url: str) -> bool:
     try:
-        parse_lnurlp_request(url)
-        return True
+        request = parse_lnurlp_request(url)
+        return request.is_uma_request()
     except Exception:  # pylint: disable=broad-except
         return False
 
@@ -332,9 +344,13 @@ def verify_uma_lnurlp_query_signature(
         request: the signed request to verify.
         other_vasp_signing_pubkey: the public key of the VASP making this request in bytes.
     """
+    if not request.signature:
+        raise InvalidRequestException("Missing signature in request.")
 
     _verify_signature(
-        request.signable_payload(), request.signature, other_vasp_signing_pubkey
+        request.signable_payload(),
+        none_throws(request.signature),
+        other_vasp_signing_pubkey,
     )
 
 
@@ -342,15 +358,15 @@ def create_pay_req_response(
     request: PayRequest,
     invoice_creator: IUmaInvoiceCreator,
     metadata: str,
-    receiving_currency_code: str,
-    receiving_currency_decimals: int,
-    msats_per_currency_unit: float,
-    receiver_fees_msats: int,
-    receiver_utxos: List[str],
+    receiving_currency_code: Optional[str],
+    receiving_currency_decimals: Optional[int],
+    msats_per_currency_unit: Optional[float],
+    receiver_fees_msats: Optional[int],
     receiver_node_pubkey: Optional[str],
-    utxo_callback: str,
-    payee_identifier: str,
-    signing_private_key: bytes,
+    utxo_callback: Optional[str],
+    payee_identifier: Optional[str],
+    signing_private_key: Optional[bytes],
+    receiver_utxos: List[str] = [],
     payee_data: Optional[PayerData] = None,
 ) -> PayReqResponse:
     """
@@ -360,16 +376,18 @@ def create_pay_req_response(
         request: the uma pay request.This will be used to sign the request.
         invoice_creator: the object that will create the invoice. In practice, this is usually a `services.LightsparkClient`.
         metadata: the metadata that will be added to the invoice's metadata hash field.
-        receiving_currency_code: the code of the currency that the receiver will receive for this payment.
+        receiving_currency_code: the code of the currency that the receiver will receive for this payment. Required for UMA transactions.
         receiving_currency_decimals: the number of decimal places in the specified currency. For example, USD has 2 decimal
-            places. This should align with the decimals field returned for the chosen currency in the LNURLP response.
-        msats_per_currency_unit: milli-satoshis per the smallest unit of the specified currency. This rate is committed to by the receiving VASP until the invoice expires.
-        receiver_fees_msats: the fees charged (in millisats) by the receiving VASP to convert to the target currency. This is separate from the conversion rate.
-        receiver_utxos: the list of UTXOs of the receiver's channels that might be used to fund the payment.
-        receiver_node_pubkey: the public key of the receiver node
+            places. This should align with the decimals field returned for the chosen currency in the LNURLP response. Required for UMA transactions.
+        msats_per_currency_unit: milli-satoshis per the smallest unit of the specified currency. This rate is committed to by the receiving VASP until the
+            invoice expires. Required for UMA transactions.
+        receiver_fees_msats: the fees charged (in millisats) by the receiving VASP to convert to the target currency. This is separate from the
+            conversion rate. Required for UMA transactions.
+        receiver_node_pubkey: the public key of the receiver node.
         utxo_callback: the URL that the receiving VASP will call to send UTXOs of the channel that the receiver used to receive the payment once it completes.
-        payee_identifier: the identifier of the receiver. For example, $bob@vasp2.com.
-        signing_private_key: the private key of the VASP that is receiving the payment. This will be used to sign the request.
+        payee_identifier: the identifier of the receiver. For example, $bob@vasp2.com. Required for UMA transactions.
+        signing_private_key: the private key of the VASP that is receiving the payment. This will be used to sign the request. Required for UMA transactions.
+        receiver_utxos: the list of UTXOs of the receiver's channels that might be used to fund the payment.
         payee_data: the additional data about the payee which was requested in the pay request by the sending VASP, if any.
     """
     if (
@@ -379,44 +397,69 @@ def create_pay_req_response(
         raise InvalidCurrencyException(
             "The sending currency code in the pay request does not match the receiving currency code."
         )
+    required_uma_fields = {
+        "receiving_currency_code": receiving_currency_code,
+        "receiving_currency_decimals": receiving_currency_decimals,
+        "msats_per_currency_unit": msats_per_currency_unit,
+        "receiver_fees_msats": receiver_fees_msats,
+        "payee_identifier": payee_identifier,
+        "signing_private_key": signing_private_key,
+    }
+    if request.is_uma_request():
+        for field, value in required_uma_fields.items():
+            if value is None:
+                raise InvalidRequestException(
+                    f"Missing required field {field} for UMA request."
+                )
+
     sending_currency = request.sending_amount_currency_code
     amount_msats = (
         request.amount
         if sending_currency is None
+        or msats_per_currency_unit is None
+        or receiver_fees_msats is None
         else request.amount * msats_per_currency_unit + receiver_fees_msats
     )
     receiving_amount = (
         request.amount
         if sending_currency is not None
+        or msats_per_currency_unit is None
+        or receiver_fees_msats is None
         else floor((request.amount - receiver_fees_msats) / msats_per_currency_unit)
     )
-    metadata += json.dumps(request.payer_data)
+    if request.payer_data:
+        metadata += json.dumps(request.payer_data)
     encoded_invoice = invoice_creator.create_uma_invoice(
         amount_msats=round(amount_msats),
         metadata=metadata,
     )
-    payee_data = payee_data or {}
-    payer_identifier = request.payer_data["identifier"]
-    if not payer_identifier:
+    payer_identifier = request.payer_data["identifier"] if request.payer_data else None
+    if not payer_identifier and request.is_uma_request():
         raise InvalidRequestException("Missing payer identifier in request")
-    payee_data["compliance"] = _create_compliance_payee_data(
-        signing_private_key=signing_private_key,
-        payer_identifier=payer_identifier,
-        payee_identifier=payee_identifier,
-        receiver_utxos=receiver_utxos,
-        receiver_node_pubkey=receiver_node_pubkey,
-        utxo_callback=utxo_callback,
-    ).to_dict()
+    if request.is_uma_request():
+        payee_data = payee_data or {}
+        payee_data["compliance"] = _create_compliance_payee_data(
+            signing_private_key=none_throws(signing_private_key),
+            payer_identifier=none_throws(payer_identifier),
+            payee_identifier=none_throws(payee_identifier),
+            receiver_utxos=receiver_utxos,
+            receiver_node_pubkey=receiver_node_pubkey,
+            utxo_callback=utxo_callback or "",
+        ).to_dict()
     return PayReqResponse(
         encoded_invoice=encoded_invoice,
         routes=[],
         payee_data=payee_data,
-        payment_info=PayReqResponsePaymentInfo(
-            amount=receiving_amount,
-            currency_code=receiving_currency_code,
-            decimals=receiving_currency_decimals,
-            multiplier=msats_per_currency_unit,
-            exchange_fees_msats=receiver_fees_msats,
+        payment_info=(
+            PayReqResponsePaymentInfo(
+                amount=receiving_amount,
+                currency_code=none_throws(receiving_currency_code),
+                decimals=none_throws(receiving_currency_decimals),
+                multiplier=none_throws(msats_per_currency_unit),
+                exchange_fees_msats=none_throws(receiver_fees_msats),
+            )
+            if request.is_uma_request()
+            else None
         ),
     )
 
@@ -455,6 +498,10 @@ def verify_pay_req_response_signature(
     response: PayReqResponse,
     other_vasp_signing_pubkey: bytes,
 ) -> None:
+    if not response.payee_data:
+        raise InvalidRequestException(
+            "Missing payee data in response. Cannot verify signature."
+        )
     compliance_data = compliance_from_payee_data(response.payee_data)
     if not compliance_data:
         raise InvalidRequestException("Missing compliance data in response")
@@ -466,7 +513,7 @@ def verify_pay_req_response_signature(
     )
 
 
-def create_lnurlp_response(
+def create_uma_lnurlp_response(
     request: LnurlpRequest,
     signing_private_key: bytes,
     requires_travel_rule_info: bool,
@@ -478,7 +525,14 @@ def create_lnurlp_response(
     currency_options: List[Currency],
     receiver_kyc_status: KycStatus,
 ) -> LnurlpResponse:
-    uma_version = select_lower_version(request.uma_version, UMA_PROTOCOL_VERSION)
+    if not request.is_uma_request():
+        raise InvalidRequestException(
+            "The request is not a UMA request. Cannot create an UMA response. "
+            + "Just create an LnurlpReasponse directly instead."
+        )
+    uma_version = select_lower_version(
+        none_throws(request.uma_version), UMA_PROTOCOL_VERSION
+    )
     compliance = _create_signed_lnurlp_compliance_response(
         request=request,
         signing_private_key=signing_private_key,
@@ -531,7 +585,7 @@ def verify_uma_lnurlp_response_signature(
 
     _verify_signature(
         response.signable_payload(),
-        response.compliance.signature,
+        none_throws(response.compliance).signature,
         other_vasp_signing_pubkey,
     )
 
