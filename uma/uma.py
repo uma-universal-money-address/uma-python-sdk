@@ -19,6 +19,7 @@ from uma.exceptions import (
     UnsupportedVersionException,
 )
 from uma.kyc_status import KycStatus
+from uma.nonce_cache import INonceCache
 from uma.payer_data import CompliancePayerData, PayerData
 from uma.protocol import (
     LnurlComplianceResponse,
@@ -81,11 +82,15 @@ def _sign_payload(payload: bytes, private_key: bytes) -> str:
 
 
 def verify_pay_request_signature(
-    request: PayRequest, other_vasp_signing_pubkey: bytes
+    request: PayRequest, other_vasp_signing_pubkey: bytes, nonce_cache: INonceCache
 ) -> None:
     if not request.payer_data.compliance:
         return
 
+    nonce_cache.check_and_save_nonce(
+        request.payer_data.compliance.signature_nonce,
+        request.payer_data.compliance.signature_timestamp,
+    )
     _verify_signature(
         request.signable_payload(),
         request.payer_data.compliance.signature,  # pyre-ignore: [16]
@@ -290,7 +295,7 @@ def is_uma_lnurlp_query(url: str) -> bool:
 
 
 def verify_uma_lnurlp_query_signature(
-    request: LnurlpRequest, other_vasp_signing_pubkey: bytes
+    request: LnurlpRequest, other_vasp_signing_pubkey: bytes, nonce_cache: INonceCache
 ) -> None:
     """
     Verifies the signature on an uma Lnurlp query based on the public key of the VASP making the request.
@@ -300,6 +305,7 @@ def verify_uma_lnurlp_query_signature(
         other_vasp_signing_pubkey: the public key of the VASP making this request in bytes.
     """
 
+    nonce_cache.check_and_save_nonce(request.nonce, request.timestamp.timestamp())
     _verify_signature(
         request.signable_payload(), request.signature, other_vasp_signing_pubkey
     )
@@ -419,11 +425,14 @@ def parse_lnurlp_response(payload: str) -> LnurlpResponse:
 
 
 def verify_uma_lnurlp_response_signature(
-    response: LnurlpResponse, other_vasp_signing_pubkey: bytes
+    response: LnurlpResponse, other_vasp_signing_pubkey: bytes, nonce_cache: INonceCache
 ) -> None:
     if not response.compliance:
         return
 
+    nonce_cache.check_and_save_nonce(
+        response.compliance.signature_nonce, response.compliance.signature_timestamp
+    )
     _verify_signature(
         response.signable_payload(),
         response.compliance.signature,
