@@ -27,3 +27,7 @@ class InvalidCurrencyException(Exception):
 class InvalidSignatureException(Exception):
     def __init__(self) -> None:
         super().__init__("Cannot verify signature.")
+
+
+class InvalidNonceException(Exception):
+    pass

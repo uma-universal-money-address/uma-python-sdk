@@ -29,6 +29,7 @@ from uma.payer_data import (
     compliance_from_payer_data,
     create_payer_data,
 )
+from uma.nonce_cache import INonceCache
 from uma.protocol import (
     LnurlComplianceResponse,
     LnurlpRequest,
@@ -89,7 +90,7 @@ def _sign_payload(payload: bytes, private_key: bytes) -> str:
 
 
 def verify_pay_request_signature(
-    request: PayRequest, other_vasp_signing_pubkey: bytes
+    request: PayRequest, other_vasp_signing_pubkey: bytes, nonce_cache: INonceCache
 ) -> None:
     if not request.payer_data:
         raise InvalidRequestException(
@@ -100,6 +101,12 @@ def verify_pay_request_signature(
     if not compliance_data:
         raise InvalidRequestException("Missing compliance data in request")
 
+    nonce_cache.check_and_save_nonce(
+        request.payer_data.compliance.signature_nonce,
+        datetime.fromtimestamp(
+            request.payer_data.compliance.signature_timestamp, timezone.utc
+        ),
+    )
     _verify_signature(
         request.signable_payload(),
         compliance_data.signature,
@@ -335,7 +342,7 @@ def is_uma_lnurlp_query(url: str) -> bool:
 
 
 def verify_uma_lnurlp_query_signature(
-    request: LnurlpRequest, other_vasp_signing_pubkey: bytes
+    request: LnurlpRequest, other_vasp_signing_pubkey: bytes, nonce_cache: INonceCache
 ) -> None:
     """
     Verifies the signature on an uma Lnurlp query based on the public key of the VASP making the request.
@@ -347,6 +354,7 @@ def verify_uma_lnurlp_query_signature(
     if not request.signature:
         raise InvalidRequestException("Missing signature in request.")
 
+    nonce_cache.check_and_save_nonce(request.nonce, request.timestamp)
     _verify_signature(
         request.signable_payload(),
         none_throws(request.signature),
@@ -559,7 +567,7 @@ def _create_signed_lnurlp_compliance_response(
     is_subject_to_travel_rule: bool,
     receiver_kyc_status: KycStatus,
 ) -> LnurlComplianceResponse:
-    timestamp = int(datetime.now().timestamp())
+    timestamp = int(datetime.now(timezone.utc).timestamp())
     nonce = generate_nonce()
     payload = "|".join([request.receiver_address, nonce, str(timestamp)])
     signature = _sign_payload(payload.encode(), signing_private_key)
@@ -578,11 +586,15 @@ def parse_lnurlp_response(payload: str) -> LnurlpResponse:
 
 
 def verify_uma_lnurlp_response_signature(
-    response: LnurlpResponse, other_vasp_signing_pubkey: bytes
+    response: LnurlpResponse, other_vasp_signing_pubkey: bytes, nonce_cache: INonceCache
 ) -> None:
     if not response.compliance:
         raise InvalidRequestException("Missing compliance data in response")
 
+    nonce_cache.check_and_save_nonce(
+        response.compliance.signature_nonce,
+        datetime.fromtimestamp(response.compliance.signature_timestamp, timezone.utc),
+    )
     _verify_signature(
         response.signable_payload(),
         none_throws(response.compliance).signature,
