@@ -24,8 +24,8 @@ from uma.protocol import (
 from uma.public_key_cache import InMemoryPublicKeyCache, IPublicKeyCache
 from uma.uma import (
     create_compliance_payer_data,
-    create_lnurlp_request_url,
-    create_lnurlp_response,
+    create_uma_lnurlp_request_url,
+    create_uma_lnurlp_response,
     create_pay_req_response,
     create_pay_request,
     fetch_public_key_for_vasp,
@@ -60,3 +60,5 @@ from uma.payee_data import (
     CompliancePayeeData,
     compliance_from_payee_data,
 )
+from uma.type_utils import none_throws
+from uma.urls import is_domain_local
