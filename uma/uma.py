@@ -366,7 +366,7 @@ def create_pay_req_response(
     utxo_callback: Optional[str],
     payee_identifier: Optional[str],
     signing_private_key: Optional[bytes],
-    receiver_utxos: List[str] = [],
+    receiver_utxos: Optional[List[str]] = None,
     payee_data: Optional[PayerData] = None,
 ) -> PayReqResponse:
     """
@@ -442,7 +442,7 @@ def create_pay_req_response(
             signing_private_key=none_throws(signing_private_key),
             payer_identifier=none_throws(payer_identifier),
             payee_identifier=none_throws(payee_identifier),
-            receiver_utxos=receiver_utxos,
+            receiver_utxos=receiver_utxos or [],
             receiver_node_pubkey=receiver_node_pubkey,
             utxo_callback=utxo_callback or "",
         ).to_dict()
