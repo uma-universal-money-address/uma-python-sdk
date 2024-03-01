@@ -11,8 +11,9 @@ from ecies import PrivateKey, decrypt
 from ecies.utils import generate_key
 
 from uma.currency import Currency
-from uma.exceptions import InvalidSignatureException
+from uma.exceptions import InvalidNonceException, InvalidSignatureException
 from uma.kyc_status import KycStatus
+from uma.nonce_cache import InMemoryNonceCache
 from uma.payer_data import PayerDataOptions
 from uma.public_key_cache import InMemoryPublicKeyCache, PubkeyResponse
 from uma.uma import (
@@ -79,6 +80,7 @@ def test_pay_request_create_and_parse() -> None:
     payer_kyc_status = KycStatus.VERIFIED
     utxo_callback = "/api/lnurl/utxocallback?txid=1234"
     node_pubkey = "dummy_node_key"
+    nonce_cache = InMemoryNonceCache(datetime.fromtimestamp(1, timezone.utc))
     payer_compliance_data = create_compliance_payer_data(
         signing_private_key=sender_signing_private_key_bytes,
         receiver_encryption_pubkey=receiver_encryption_public_key_bytes,
@@ -101,14 +103,19 @@ def test_pay_request_create_and_parse() -> None:
     json_payload = pay_request.to_json()
     result_pay_request = parse_pay_request(json_payload)
     assert pay_request == result_pay_request
-    verify_pay_request_signature(pay_request, sender_signing_public_key_bytes)
+    verify_pay_request_signature(
+        pay_request, sender_signing_public_key_bytes, nonce_cache
+    )
 
     # test invalid signature
+    pay_request.payer_data.compliance.signature_nonce = "new_nonce"  # pyre-ignore: [16]
     pay_request.payer_data.compliance.signature = (  # pyre-ignore: [16]
         secrets.token_hex()
     )
     with pytest.raises(InvalidSignatureException):
-        verify_pay_request_signature(pay_request, sender_signing_public_key_bytes)
+        verify_pay_request_signature(
+            pay_request, sender_signing_public_key_bytes, nonce_cache
+        )
 
     # verify encryption
     encrypted_travel_rule_info = (
@@ -165,6 +172,7 @@ def test_lnurlp_request_url_create_and_parse() -> None:
     receiver_address = "bob@vasp2.com"
     sender_vasp_domain = "vasp1.com"
     is_subject_to_travel_rule = False
+    nonce_cache = InMemoryNonceCache(datetime.fromtimestamp(1, timezone.utc))
 
     url = create_lnurlp_request_url(
         signing_private_key=sender_signing_private_key_bytes,
@@ -178,12 +186,17 @@ def test_lnurlp_request_url_create_and_parse() -> None:
     assert request.is_subject_to_travel_rule == is_subject_to_travel_rule
     assert request.vasp_domain == sender_vasp_domain
 
-    verify_uma_lnurlp_query_signature(request, sender_signing_public_key_bytes)
+    verify_uma_lnurlp_query_signature(
+        request, sender_signing_public_key_bytes, nonce_cache
+    )
 
     # test invalid signature
+    request.nonce = "new_nonce"
     request.signature = secrets.token_hex()
     with pytest.raises(InvalidSignatureException):
-        verify_uma_lnurlp_query_signature(request, sender_signing_public_key_bytes)
+        verify_uma_lnurlp_query_signature(
+            request, sender_signing_public_key_bytes, nonce_cache
+        )
 
 
 class DummyUmaInvoiceCreator(IUmaInvoiceCreator):
@@ -281,6 +294,7 @@ def test_lnurlp_response_create_and_parse() -> None:
     )
     lnurlp_request = parse_lnurlp_request(lnurlp_request_url)
     metadata = _create_metadata()
+    nonce_cache = InMemoryNonceCache(datetime.fromtimestamp(1, timezone.utc))
     callback = "https://vasp2.com/api/lnurl/payreq/$bob"
     min_sendable_sats = 1
     max_sendable_sats = 10_000_000
@@ -331,20 +345,22 @@ def test_lnurlp_response_create_and_parse() -> None:
     assert result_response.compliance.receiver_identifier == receiver_address
 
     verify_uma_lnurlp_response_signature(
-        result_response, receiver_signing_public_key_bytes
+        result_response, receiver_signing_public_key_bytes, nonce_cache
     )
 
     # test invalid signature
+    result_response.compliance.signature_nonce = "new_nonce"
     result_response.compliance.signature = secrets.token_hex()
     with pytest.raises(InvalidSignatureException):
         verify_uma_lnurlp_response_signature(
-            result_response, receiver_signing_public_key_bytes
+            result_response, receiver_signing_public_key_bytes, nonce_cache
         )
 
 
 def test_invalid_lnurlp_signature() -> None:
     sender_signing_private_key_bytes, _ = _create_key_pair()
     _, different_signing_key_public = _create_key_pair()
+    nonce_cache = InMemoryNonceCache(datetime.fromtimestamp(1, timezone.utc))
 
     receiver_address = "bob@vasp2.com"
     lnurlp_request_url = create_lnurlp_request_url(
@@ -356,16 +372,68 @@ def test_invalid_lnurlp_signature() -> None:
     lnurlp_request = parse_lnurlp_request(lnurlp_request_url)
 
     # test invalid signature
+    lnurlp_request.nonce = "new_nonce"
     with pytest.raises(InvalidSignatureException):
-        verify_uma_lnurlp_query_signature(lnurlp_request, different_signing_key_public)
+        verify_uma_lnurlp_query_signature(
+            lnurlp_request, different_signing_key_public, nonce_cache
+        )
+
+
+def test_lnurlp_duplicate_nonce() -> None:
+    (
+        sender_signing_private_key_bytes,
+        sender_signing_public_key_bytes,
+    ) = _create_key_pair()
+    nonce_cache = InMemoryNonceCache(datetime.fromtimestamp(1, timezone.utc))
+
+    receiver_address = "bob@vasp2.com"
+    lnurlp_request_url = create_lnurlp_request_url(
+        signing_private_key=sender_signing_private_key_bytes,
+        receiver_address=receiver_address,
+        sender_vasp_domain="vasp1.com",
+        is_subject_to_travel_rule=True,
+    )
+    lnurlp_request = parse_lnurlp_request(lnurlp_request_url)
+    verify_uma_lnurlp_query_signature(
+        lnurlp_request, sender_signing_public_key_bytes, nonce_cache
+    )
+
+    # test duplicate nonce
+    with pytest.raises(InvalidNonceException, match="Nonce has already been used."):
+        verify_uma_lnurlp_query_signature(
+            lnurlp_request, sender_signing_public_key_bytes, nonce_cache
+        )
+
+
+def test_lnurlp_signature_too_old() -> None:
+    (
+        sender_signing_private_key_bytes,
+        sender_signing_public_key_bytes,
+    ) = _create_key_pair()
+    nonce_cache = InMemoryNonceCache(datetime.now(timezone.utc) + timedelta(seconds=5))
+
+    receiver_address = "bob@vasp2.com"
+    lnurlp_request_url = create_lnurlp_request_url(
+        signing_private_key=sender_signing_private_key_bytes,
+        receiver_address=receiver_address,
+        sender_vasp_domain="vasp1.com",
+        is_subject_to_travel_rule=True,
+    )
+    lnurlp_request = parse_lnurlp_request(lnurlp_request_url)
+
+    # test signature too old
+    with pytest.raises(InvalidNonceException, match="Timestamp is too old."):
+        verify_uma_lnurlp_query_signature(
+            lnurlp_request, sender_signing_public_key_bytes, nonce_cache
+        )
 
 
 def test_high_signature_normalization() -> None:
     pub_key_bytes = bytes.fromhex(
         "047d37ce263a855ff49eb2a537a77a369a861507687bfde1df40062c8774488d644455a44baeb5062b79907d2e6f9692dd5b7bd7c37a3721ba21378d3594672063"
     )
-
+    nonce_cache = InMemoryNonceCache(datetime.fromtimestamp(1, timezone.utc))
     lnurlp_request_url = "https://uma.jeremykle.in/.well-known/lnurlp/$jeremy?isSubjectToTravelRule=true&nonce=2734010273&signature=30450220694fce49a32c81a58ddb0090ebdd4c7ff3a1e277d28570c61bf2b8274b5d8286022100fe6f0318579e12726531c8a63aea6a94f59f46b7679f970df33f7750a0d88f36&timestamp=1701461443&umaVersion=0.1&vaspDomain=api.ltng.bakkt.com"
     lnurlp_request = parse_lnurlp_request(lnurlp_request_url)
 
-    verify_uma_lnurlp_query_signature(lnurlp_request, pub_key_bytes)
+    verify_uma_lnurlp_query_signature(lnurlp_request, pub_key_bytes, nonce_cache)
