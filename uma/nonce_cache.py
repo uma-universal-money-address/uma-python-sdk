@@ -46,10 +46,7 @@ class InMemoryNonceCache(INonceCache):
         self._cache[nonce] = timestamp
 
     def purge_nonces_older_than(self, timestamp: int) -> None:
-        print(f"Purging nonces older than {timestamp} from cache {self._cache.items()}")
         expired_nonces = [nonce for nonce, ts in self._cache.items() if ts < timestamp]
-        print(f"Expired nonces: {expired_nonces}")
         for nonce in expired_nonces:
-            print(f"Removing expired nonce {nonce} from cache.")
             del self._cache[nonce]
         self._oldest_valid_timestamp = timestamp
