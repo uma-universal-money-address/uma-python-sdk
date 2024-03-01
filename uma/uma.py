@@ -349,8 +349,10 @@ def verify_uma_lnurlp_query_signature(
         request: the signed request to verify.
         other_vasp_signing_pubkey: the public key of the VASP making this request in bytes.
     """
-    if not request.signature:
-        raise InvalidRequestException("Missing signature in request.")
+    if not request.signature or not request.nonce or not request.timestamp:
+        raise InvalidRequestException(
+            "Missing uma query parameters: signature, nonce and timestamp are required."
+        )
 
     nonce_cache.check_and_save_nonce(request.nonce, request.timestamp)
     _verify_signature(
