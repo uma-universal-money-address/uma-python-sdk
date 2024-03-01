@@ -89,7 +89,9 @@ def verify_pay_request_signature(
 
     nonce_cache.check_and_save_nonce(
         request.payer_data.compliance.signature_nonce,
-        request.payer_data.compliance.signature_timestamp,
+        datetime.fromtimestamp(
+            request.payer_data.compliance.signature_timestamp, timezone.utc
+        ),
     )
     _verify_signature(
         request.signable_payload(),
@@ -305,7 +307,7 @@ def verify_uma_lnurlp_query_signature(
         other_vasp_signing_pubkey: the public key of the VASP making this request in bytes.
     """
 
-    nonce_cache.check_and_save_nonce(request.nonce, int(request.timestamp.timestamp()))
+    nonce_cache.check_and_save_nonce(request.nonce, request.timestamp)
     _verify_signature(
         request.signable_payload(), request.signature, other_vasp_signing_pubkey
     )
@@ -406,7 +408,7 @@ def _create_signed_lnurlp_compliance_response(
     is_subject_to_travel_rule: bool,
     receiver_kyc_status: KycStatus,
 ) -> LnurlComplianceResponse:
-    timestamp = int(datetime.now().timestamp())
+    timestamp = int(datetime.now(timezone.utc).timestamp())
     nonce = generate_nonce()
     payload = "|".join([request.receiver_address, nonce, str(timestamp)])
     signature = _sign_payload(payload.encode(), signing_private_key)
@@ -431,7 +433,8 @@ def verify_uma_lnurlp_response_signature(
         return
 
     nonce_cache.check_and_save_nonce(
-        response.compliance.signature_nonce, response.compliance.signature_timestamp
+        response.compliance.signature_nonce,
+        datetime.fromtimestamp(response.compliance.signature_timestamp, timezone.utc),
     )
     _verify_signature(
         response.signable_payload(),
