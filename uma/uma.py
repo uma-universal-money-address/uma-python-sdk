@@ -503,6 +503,7 @@ def verify_pay_req_response_signature(
     receiver_address: str,
     response: PayReqResponse,
     other_vasp_signing_pubkey: bytes,
+    nonce_cache: INonceCache,
 ) -> None:
     if not response.payee_data:
         raise InvalidRequestException(
@@ -512,6 +513,10 @@ def verify_pay_req_response_signature(
     if not compliance_data:
         raise InvalidRequestException("Missing compliance data in response")
 
+    nonce_cache.check_and_save_nonce(
+        compliance_data.signature_nonce,
+        datetime.fromtimestamp(compliance_data.signature_timestamp, timezone.utc),
+    )
     _verify_signature(
         compliance_data.signable_payload(sender_address, receiver_address),
         compliance_data.signature,

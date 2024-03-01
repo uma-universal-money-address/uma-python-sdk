@@ -234,6 +234,7 @@ def test_pay_req_response_create_and_parse() -> None:
     payer_kyc_status = KycStatus.VERIFIED
     sender_utxo_callback = "/sender_api/lnurl/utxocallback?txid=1234"
     node_pubkey = "dummy_node_key"
+    nonce_cache = InMemoryNonceCache(datetime.fromtimestamp(1, timezone.utc))
     pay_request = create_pay_request(
         receiving_currency_code=currency_code,
         is_amount_in_receiving_currency=True,
@@ -293,6 +294,7 @@ def test_pay_req_response_create_and_parse() -> None:
         receiver_address="$bob@vasp2.com",
         response=response,
         other_vasp_signing_pubkey=receiver_signing_public_key_bytes,
+        nonce_cache=nonce_cache,
     )
 
 
@@ -311,6 +313,7 @@ def test_pay_req_with_locked_sending_amount() -> None:
     payer_kyc_status = KycStatus.VERIFIED
     sender_utxo_callback = "/sender_api/lnurl/utxocallback?txid=1234"
     node_pubkey = "dummy_node_key"
+    nonce_cache = InMemoryNonceCache(datetime.fromtimestamp(1, timezone.utc))
     pay_request = create_pay_request(
         receiving_currency_code=currency_code,
         is_amount_in_receiving_currency=False,
@@ -377,6 +380,7 @@ def test_pay_req_with_locked_sending_amount() -> None:
         receiver_address="$bob@vasp2.com",
         response=response,
         other_vasp_signing_pubkey=receiver_signing_public_key_bytes,
+        nonce_cache=nonce_cache,
     )
 
 
