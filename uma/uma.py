@@ -102,10 +102,8 @@ def verify_pay_request_signature(
         raise InvalidRequestException("Missing compliance data in request")
 
     nonce_cache.check_and_save_nonce(
-        request.payer_data.compliance.signature_nonce,
-        datetime.fromtimestamp(
-            request.payer_data.compliance.signature_timestamp, timezone.utc
-        ),
+        compliance_data.signature_nonce,
+        datetime.fromtimestamp(compliance_data.signature_timestamp, timezone.utc),
     )
     _verify_signature(
         request.signable_payload(),

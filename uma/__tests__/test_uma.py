@@ -116,7 +116,7 @@ def test_pay_request_create_and_parse() -> None:
     compliance_dict = none_throws(result_pay_request.payer_data).get("compliance")
     assert compliance_dict is not None
     # test invalid signature
-    compliance_dict["signature_nonce"] = "new_nonce"
+    nonce_cache = InMemoryNonceCache(datetime.fromtimestamp(1, timezone.utc))
     compliance_dict["signature"] = secrets.token_hex()
     with pytest.raises(InvalidSignatureException):
         verify_pay_request_signature(
@@ -458,7 +458,7 @@ def test_lnurlp_response_create_and_parse() -> None:
     )
 
     # test invalid signature
-    compiliance.signature_nonce = "new_nonce"
+    compliance.signature_nonce = "new_nonce"
     compliance.signature = secrets.token_hex()
     with pytest.raises(InvalidSignatureException):
         verify_uma_lnurlp_response_signature(
@@ -496,7 +496,7 @@ def test_lnurlp_duplicate_nonce() -> None:
     nonce_cache = InMemoryNonceCache(datetime.fromtimestamp(1, timezone.utc))
 
     receiver_address = "bob@vasp2.com"
-    lnurlp_request_url = create_lnurlp_request_url(
+    lnurlp_request_url = create_uma_lnurlp_request_url(
         signing_private_key=sender_signing_private_key_bytes,
         receiver_address=receiver_address,
         sender_vasp_domain="vasp1.com",
@@ -522,7 +522,7 @@ def test_lnurlp_signature_too_old() -> None:
     nonce_cache = InMemoryNonceCache(datetime.now(timezone.utc) + timedelta(seconds=5))
 
     receiver_address = "bob@vasp2.com"
-    lnurlp_request_url = create_lnurlp_request_url(
+    lnurlp_request_url = create_uma_lnurlp_request_url(
         signing_private_key=sender_signing_private_key_bytes,
         receiver_address=receiver_address,
         sender_vasp_domain="vasp1.com",
