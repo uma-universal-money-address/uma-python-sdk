@@ -20,3 +20,5 @@ pyre-check = "*"
 pytest = "*"
 tomli = "*"
 wrapt = "*"
+# Need to lock this version to avoid breaking older python versions:
+libcst = "==1.1.0"
