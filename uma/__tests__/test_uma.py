@@ -108,7 +108,7 @@ def test_pay_request_create_and_parse() -> None:
     )
 
     # test invalid signature
-    pay_request.payer_data.compliance.signature_nonce = "new_nonce"
+    pay_request.payer_data.compliance.signature_nonce = "new_nonce"  # pyre-ignore: [16]
     pay_request.payer_data.compliance.signature = (  # pyre-ignore: [16]
         secrets.token_hex()
     )

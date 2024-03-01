@@ -305,7 +305,7 @@ def verify_uma_lnurlp_query_signature(
         other_vasp_signing_pubkey: the public key of the VASP making this request in bytes.
     """
 
-    nonce_cache.check_and_save_nonce(request.nonce, request.timestamp.timestamp())
+    nonce_cache.check_and_save_nonce(request.nonce, int(request.timestamp.timestamp()))
     _verify_signature(
         request.signable_payload(), request.signature, other_vasp_signing_pubkey
     )
