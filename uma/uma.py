@@ -3,7 +3,7 @@ import json
 from math import floor
 import random
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import Dict, List, Optional
 from urllib.parse import parse_qs, urlparse
 
 import requests
@@ -210,6 +210,7 @@ def create_pay_request(
     payer_email: Optional[str],
     payer_compliance: Optional[CompliancePayerData],
     requested_payee_data: Optional[CounterpartyDataOptions] = None,
+    comment: Optional[str] = None,
 ) -> PayRequest:
     """
     Creates a payreq request object.
@@ -228,6 +229,9 @@ def create_pay_request(
             but not for regular LNURL payments.
         requested_payee_data: the additional data about the payee which is requested by the sending
             VASP, if any.
+        comment: A comment that the sender wants to add to the payment. This can only be included
+            if the receiver included the `commentAllowed` field in the lnurlp response. The length of
+            the comment must be less than or equal to the value of `commentAllowed`.
     """
     sending_currency_code = (
         receiving_currency_code if is_amount_in_receiving_currency else None
@@ -243,6 +247,7 @@ def create_pay_request(
             compliance=payer_compliance,
         ),
         requested_payee_data=requested_payee_data,
+        comment=comment,
     )
 
 
@@ -378,6 +383,8 @@ def create_pay_req_response(
     signing_private_key: Optional[bytes],
     receiver_utxos: Optional[List[str]] = None,
     payee_data: Optional[PayerData] = None,
+    disposable: bool = False,
+    success_action: Optional[Dict[str, str]] = None,
 ) -> PayReqResponse:
     """
     Creates an uma pay request response with an encoded invoice.
@@ -399,6 +406,10 @@ def create_pay_req_response(
         signing_private_key: the private key of the VASP that is receiving the payment. This will be used to sign the request. Required for UMA transactions.
         receiver_utxos: the list of UTXOs of the receiver's channels that might be used to fund the payment.
         payee_data: the additional data about the payee which was requested in the pay request by the sending VASP, if any.
+        disposable: This field may be used by a WALLET to decide whether the initial LNURL link will be stored locally for later reuse or erased.
+            If disposable is null, it should be interpreted as true, so if SERVICE intends its LNURL links to be stored it must return
+            `disposable: false`. UMA should always return `disposable: false`. See LUD-11.
+        success_action: an action that the wallet should take once the payment is complete. See LUD-09
     """
     if (
         request.sending_amount_currency_code
@@ -471,6 +482,8 @@ def create_pay_req_response(
             if request.is_uma_request()
             else None
         ),
+        disposable=disposable,
+        success_action=success_action,
     )
 
 
@@ -539,6 +552,8 @@ def create_uma_lnurlp_response(
     payer_data_options: CounterpartyDataOptions,
     currency_options: List[Currency],
     receiver_kyc_status: KycStatus,
+    comment_chars_allowed: Optional[int] = None,
+    nostr_pubkey: Optional[str] = None,
 ) -> LnurlpResponse:
     if not request.is_uma_request():
         raise InvalidRequestException(
@@ -565,6 +580,9 @@ def create_uma_lnurlp_response(
         required_payer_data=payer_data_options,
         compliance=compliance,
         uma_version=uma_version,
+        comment_chars_allowed=comment_chars_allowed,
+        nostr_pubkey=nostr_pubkey,
+        allows_nostr=nostr_pubkey is not None,
     )
 
 

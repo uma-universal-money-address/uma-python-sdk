@@ -171,9 +171,29 @@ class LnurlpResponse(JSONable):
     The version of the UMA protocol that the receiver is using.
     """
 
+    comment_chars_allowed: Optional[int] = None
+    """
+    The number of characters that the sender can include in the comment field of the pay request.
+    """
+
+    nostr_pubkey: Optional[str] = None
+    """
+    An optional nostr pubkey used for nostr zaps (NIP-57). If set, it should be a valid
+    BIP-340 public key in hex format.
+    """
+
+    allows_nostr: Optional[bool] = None
+    """
+    Should be set to true if the receiving VASP allows nostr zaps (NIP-57).
+    """
+
     @classmethod
     def _get_field_name_overrides(cls) -> Dict[str, str]:
-        return {"encoded_metadata": "metadata", "required_payer_data": "payerData"}
+        return {
+            "encoded_metadata": "metadata",
+            "required_payer_data": "payerData",
+            "comment_chars_allowed": "commentAllowed",
+        }
 
     def is_uma_response(self) -> bool:
         return self.uma_version is not None and self.compliance is not None
@@ -238,6 +258,13 @@ class PayRequest(JSONable):
     """
     The data about the receiver that the sending VASP would like to know from the receiver.
     See LUD-22.
+    """
+
+    comment: Optional[str] = None
+    """
+    A comment that the sender would like to include with the payment. This can only be included
+    if the receiver included the `commentAllowed` field in the lnurlp response. The length of
+    the comment must be less than or equal to the value of `commentAllowed`.
     """
 
     def signable_payload(self) -> bytes:
@@ -372,6 +399,19 @@ class PayReqResponse(JSONable):
     """
     Information about the payment that the receiver will receive. Includes
     Final currency-related information for the payment.
+    """
+
+    disposable: Optional[bool] = False
+    """
+    This field may be used by a WALLET to decide whether the initial LNURL link will
+    be stored locally for later reuse or erased. If disposable is null, it should be
+    interpreted as true, so if SERVICE intends its LNURL links to be stored it must
+    return `disposable: false`. UMA should always return `disposable: false`. See LUD-11.
+    """
+
+    success_action: Optional[Dict[str, str]] = None
+    """
+    Defines a struct which can be stored and shown to the user on payment success. See LUD-09.
     """
 
     @classmethod
