@@ -37,7 +37,9 @@ from uma.protocol import (
     PayReqResponse,
     PayReqResponsePaymentInfo,
     PayRequest,
+    PostTransactionCallback,
     PubkeyResponse,
+    UtxoWithAmount,
 )
 from uma.public_key_cache import IPublicKeyCache
 from uma.type_utils import none_throws
@@ -632,3 +634,59 @@ def get_vasp_domain_from_uma_address(uma_address: str) -> str:
 
     [_, domain] = uma_address.split("@")
     return domain
+
+
+def create_post_transaction_callback(
+    utxos: List[UtxoWithAmount],
+    vasp_domain: str,
+    signing_private_key: bytes,
+) -> PostTransactionCallback:
+    """
+    Creates a signed post transaction callback.
+
+    Args:
+        utxos: UTXOs of the channels of the VASP initiating the callback.
+        vasp_domain: the domain of the VASP initiating the callback.
+        signing_private_key: the private key of the VASP initiating the callback. This will be used to sign the request.
+    """
+    timestamp = int(datetime.now(timezone.utc).timestamp())
+    nonce = generate_nonce()
+    post_transaction_callback = PostTransactionCallback(
+        utxos=utxos,
+        vasp_domain=vasp_domain,
+        signature="",
+        signature_nonce=nonce,
+        signature_timestamp=timestamp,
+    )
+    payload = post_transaction_callback.signable_payload()
+    signature = _sign_payload(payload, signing_private_key)
+    post_transaction_callback.signature = signature
+    return post_transaction_callback
+
+
+def parse_post_transaction_callback(payload: str) -> PostTransactionCallback:
+    return PostTransactionCallback.from_json(payload)
+
+
+def verify_post_transaction_callback_signature(
+    callback: PostTransactionCallback,
+    other_vasp_signing_pubkey: bytes,
+    nonce_cache: INonceCache,
+) -> None:
+    """
+    Verifies the signature on a post transaction callback based on the public key of the counterparty
+
+    Args:
+        callback: the signed callback to verify.
+        other_vasp_signing_pubkey: the public key of the counterparty VASP.
+        nonce_cache: the nonce cache used to prevent replay attacks.
+    """
+    nonce_cache.check_and_save_nonce(
+        callback.signature_nonce,
+        datetime.fromtimestamp(callback.signature_timestamp, timezone.utc),
+    )
+    _verify_signature(
+        callback.signable_payload(),
+        callback.signature,
+        other_vasp_signing_pubkey,
+    )

@@ -20,20 +20,24 @@ from uma.payer_data import compliance_from_payer_data
 from uma.nonce_cache import InMemoryNonceCache
 from uma.public_key_cache import InMemoryPublicKeyCache, PubkeyResponse
 from uma.type_utils import none_throws
+from uma.protocol import UtxoWithAmount
 from uma.uma import (
     create_compliance_payer_data,
     create_uma_lnurlp_request_url,
     create_uma_lnurlp_response,
     create_pay_req_response,
     create_pay_request,
+    create_post_transaction_callback,
     fetch_public_key_for_vasp,
     is_uma_lnurlp_query,
     parse_lnurlp_request,
     parse_lnurlp_response,
     parse_pay_req_response,
     parse_pay_request,
+    parse_post_transaction_callback,
     verify_pay_request_signature,
     verify_pay_req_response_signature,
+    verify_post_transaction_callback_signature,
     verify_uma_lnurlp_query_signature,
     verify_uma_lnurlp_response_signature,
 )
@@ -602,3 +606,30 @@ def test_payreq_serialization_in_msats() -> None:
     payreq_json = json.loads(pay_request.to_json())
     assert payreq_json["amount"] == str(amount_msats)
     assert payreq_json["convert"] == "USD"
+
+
+def test_post_transaction_callback_create_and_parse() -> None:
+    (
+        signing_private_key_bytes,
+        signing_public_key_bytes,
+    ) = _create_key_pair()
+    nonce_cache = InMemoryNonceCache(datetime.fromtimestamp(1, timezone.utc))
+
+    callback = create_post_transaction_callback(
+        utxos=[UtxoWithAmount(utxo="abcdef12345", amount_msats=100)],
+        vasp_domain="myvasp.com",
+        signing_private_key=signing_private_key_bytes,
+    )
+
+    assert callback == parse_post_transaction_callback(callback.to_json())
+    verify_post_transaction_callback_signature(
+        callback, signing_public_key_bytes, nonce_cache
+    )
+
+    # test invalid signature
+    callback.signature_nonce = "new_nonce"
+    callback.signature = secrets.token_hex()
+    with pytest.raises(InvalidSignatureException):
+        verify_post_transaction_callback_signature(
+            callback, signing_public_key_bytes, nonce_cache
+        )
