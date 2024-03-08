@@ -393,20 +393,22 @@ class PayReqResponse(JSONable):
     payee_data: Optional[PayeeData]
     """
     The data about the receiver that the sending VASP requested in the payreq request.
+    Required for UMA.
     """
 
     payment_info: Optional[PayReqResponsePaymentInfo]
     """
     Information about the payment that the receiver will receive. Includes
-    Final currency-related information for the payment.
+    Final currency-related information for the payment. Required for UMA.
     """
 
-    disposable: Optional[bool] = False
+    disposable: Optional[bool] = None
     """
     This field may be used by a WALLET to decide whether the initial LNURL link will
     be stored locally for later reuse or erased. If disposable is null, it should be
     interpreted as true, so if SERVICE intends its LNURL links to be stored it must
-    return `disposable: false`. UMA should always return `disposable: false`. See LUD-11.
+    return `disposable: false`. UMA should never return `disposable: false` due to
+    signature nonce checks, etc. See LUD-11.
     """
 
     success_action: Optional[Dict[str, str]] = None

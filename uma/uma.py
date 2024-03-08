@@ -383,7 +383,7 @@ def create_pay_req_response(
     signing_private_key: Optional[bytes],
     receiver_utxos: Optional[List[str]] = None,
     payee_data: Optional[PayerData] = None,
-    disposable: bool = False,
+    disposable: bool = True,
     success_action: Optional[Dict[str, str]] = None,
 ) -> PayReqResponse:
     """
@@ -408,7 +408,7 @@ def create_pay_req_response(
         payee_data: the additional data about the payee which was requested in the pay request by the sending VASP, if any.
         disposable: This field may be used by a WALLET to decide whether the initial LNURL link will be stored locally for later reuse or erased.
             If disposable is null, it should be interpreted as true, so if SERVICE intends its LNURL links to be stored it must return
-            `disposable: false`. UMA should always return `disposable: false`. See LUD-11.
+            `disposable: false`. UMA should never return `disposable: false`. See LUD-11.
         success_action: an action that the wallet should take once the payment is complete. See LUD-09
     """
     if (
@@ -479,7 +479,7 @@ def create_pay_req_response(
                 multiplier=none_throws(msats_per_currency_unit),
                 exchange_fees_msats=none_throws(receiver_fees_msats),
             )
-            if request.is_uma_request()
+            if receiving_currency_code and msats_per_currency_unit is not None
             else None
         ),
         disposable=disposable,
