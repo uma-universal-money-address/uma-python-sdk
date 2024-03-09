@@ -1,14 +1,14 @@
 # Copyright ©, 2022-present, Lightspark Group, Inc. - All Rights Reserved
 
-from cryptography import x509
-from cryptography.hazmat.primitives import serialization
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlencode
-from uma.counterparty_data import CounterpartyDataOptions
+from cryptography import x509
+from cryptography.hazmat.primitives import serialization
 
 from uma.cert_utils import get_pubkey
+from uma.counterparty_data import CounterpartyDataOptions
 from uma.currency import Currency
 from uma.exceptions import InvalidRequestException
 from uma.JSONable import JSONable
