@@ -1,11 +1,14 @@
 # Copyright ©, 2022-present, Lightspark Group, Inc. - All Rights Reserved
 
+from cryptography import x509
+from cryptography.hazmat.primitives import serialization
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlencode
 from uma.counterparty_data import CounterpartyDataOptions
 
+from uma.cert_utils import get_pubkey
 from uma.currency import Currency
 from uma.exceptions import InvalidRequestException
 from uma.JSONable import JSONable
@@ -433,10 +436,16 @@ class PubkeyResponse(JSONable):
     It is the response to GET requests at `/.well-known/lnurlpubkey`.
     """
 
-    signing_pubkey: bytes
+    signing_cert_chain: Optional[List[x509.Certificate]]
+    """The certificate chain used to verify signatures from a VASP."""
+
+    encryption_cert_chain: Optional[List[x509.Certificate]]
+    """The certificate chain used to encrypt TR info sent to a VASP."""
+
+    signing_pubkey: Optional[bytes]
     """Used to verify signatures from a VASP."""
 
-    encryption_pubkey: bytes
+    encryption_pubkey: Optional[bytes]
     """Used to encrypt TR info sent to a VASP."""
 
     expiration_timestamp: Optional[datetime]
@@ -445,11 +454,36 @@ class PubkeyResponse(JSONable):
 	It can be safely cached until this expiration (or forever if null).
     """
 
+    def get_signing_pubkey(self) -> bytes:
+        if self.signing_cert_chain and self.signing_cert_chain[-1]:
+            return get_pubkey(self.signing_cert_chain[-1])
+        if self.signing_pubkey:
+            return self.signing_pubkey
+        raise InvalidRequestException("Signing pubkey is required for uma.")
+
+    def get_encryption_pubkey(self) -> bytes:
+        if self.encryption_cert_chain and self.encryption_cert_chain[-1]:
+            return get_pubkey(self.encryption_cert_chain[-1])
+        if self.encryption_pubkey:
+            return self.encryption_pubkey
+        raise InvalidRequestException("Encryption pubkey is required for uma.")
+
     def to_dict(self) -> Dict[str, Any]:
-        json_dict: Dict[str, Any] = {
-            "signingPubKey": self.signing_pubkey.hex(),
-            "encryptionPubKey": self.encryption_pubkey.hex(),
-        }
+        json_dict: Dict[str, Any] = {}
+        if self.signing_cert_chain:
+            json_dict["signingCertChain"] = [
+                cert.public_bytes(encoding=serialization.Encoding.PEM).hex()
+                for cert in self.signing_cert_chain
+            ]
+        if self.encryption_cert_chain:
+            json_dict["encryptionCertChain"] = [
+                cert.public_bytes(encoding=serialization.Encoding.PEM).hex()
+                for cert in self.encryption_cert_chain
+            ]
+        if self.signing_pubkey:
+            json_dict["signingPubKey"] = self.signing_pubkey.hex()
+        if self.encryption_pubkey:
+            json_dict["encryptionPubKey"] = self.encryption_pubkey.hex()
         if self.expiration_timestamp:
             json_dict["expirationTimestamp"] = int(
                 self.expiration_timestamp.timestamp()
@@ -459,8 +493,36 @@ class PubkeyResponse(JSONable):
     @classmethod
     def _from_dict(cls, json_dict: Dict[str, Any]) -> Dict[str, Any]:
         return {
-            "signing_pubkey": bytes.fromhex(json_dict["signingPubKey"]),
-            "encryption_pubkey": bytes.fromhex(json_dict["encryptionPubKey"]),
+            "signing_cert_chain": (
+                [
+                    x509.load_pem_x509_certificate(bytes.fromhex(cert))
+                    for cert in json_dict["signingCertChain"]
+                ]
+                if "signingCertChain" in json_dict
+                and json_dict["signingCertChain"] is not None
+                else None
+            ),
+            "encryption_cert_chain": (
+                [
+                    x509.load_pem_x509_certificate(bytes.fromhex(cert))
+                    for cert in json_dict["encryptionCertChain"]
+                ]
+                if "encryptionCertChain" in json_dict
+                and json_dict["encryptionCertChain"] is not None
+                else None
+            ),
+            "signing_pubkey": (
+                bytes.fromhex(json_dict["signingPubKey"])
+                if "signingPubKey" in json_dict
+                and json_dict["signingPubKey"] is not None
+                else None
+            ),
+            "encryption_pubkey": (
+                bytes.fromhex(json_dict["encryptionPubKey"])
+                if "encryptionPubKey" in json_dict
+                and json_dict["encryptionPubKey"] is not None
+                else None
+            ),
             "expiration_timestamp": (
                 datetime.fromtimestamp(json_dict["expirationTimestamp"], timezone.utc)
                 if "expirationTimestamp" in json_dict
