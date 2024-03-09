@@ -79,13 +79,23 @@ def create_pubkey_response(
     encryption_cert_chain: str,
     expiration_timestamp: Optional[datetime] = None,
 ) -> PubkeyResponse:
+    """
+    Creates a pubkey response.
+
+    Args:
+        signing_cert_chain: the chain of signing certificates in PEM format.
+            The order of the certificates should be from the leaf to the root.
+        encryption_cert_chain: the chain of encryption certificates in PEM format.
+            The order of the certificates should be from the leaf to the root.
+        expiration_timestamp: the expiration timestamp of the public keys.
+    """
     signing_certs = get_x509_certs(signing_cert_chain)
     encryption_certs = get_x509_certs(encryption_cert_chain)
     return PubkeyResponse(
         signing_certs,
         encryption_certs,
-        get_pubkey(signing_certs[-1]),
-        get_pubkey(encryption_certs[-1]),
+        get_pubkey(signing_certs[0]),
+        get_pubkey(encryption_certs[0]),
         expiration_timestamp,
     )
 

@@ -455,15 +455,17 @@ class PubkeyResponse(JSONable):
     """
 
     def get_signing_pubkey(self) -> bytes:
-        if self.signing_cert_chain and self.signing_cert_chain[-1]:
-            return get_pubkey(self.signing_cert_chain[-1])
+        # the first cert in the chain is the leaf (sender's) cert
+        if self.signing_cert_chain and self.signing_cert_chain[0]:
+            return get_pubkey(self.signing_cert_chain[0])
         if self.signing_pubkey:
             return self.signing_pubkey
         raise InvalidRequestException("Signing pubkey is required for uma.")
 
     def get_encryption_pubkey(self) -> bytes:
-        if self.encryption_cert_chain and self.encryption_cert_chain[-1]:
-            return get_pubkey(self.encryption_cert_chain[-1])
+        # the first cert in the chain is the leaf (sender's) cert
+        if self.encryption_cert_chain and self.encryption_cert_chain[0]:
+            return get_pubkey(self.encryption_cert_chain[0])
         if self.encryption_pubkey:
             return self.encryption_pubkey
         raise InvalidRequestException("Encryption pubkey is required for uma.")

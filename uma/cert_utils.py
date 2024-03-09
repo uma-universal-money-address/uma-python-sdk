@@ -1,5 +1,6 @@
 from cryptography import x509
 from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import ec
 from typing import List
 from uma.exceptions import (
     InvalidRequestException,
@@ -7,7 +8,15 @@ from uma.exceptions import (
 
 
 def get_pubkey(cert: x509.Certificate) -> bytes:
-    return cert.public_key().public_bytes(
+    # The last 65 bytes of the DER-encoded public key are the uncompressed public key.
+    pubkey = cert.public_key()
+
+    if not isinstance(pubkey, ec.EllipticCurvePublicKey):
+        raise InvalidRequestException("Public key is not an Elliptic Curve public key.")
+    if pubkey.curve.name != 'secp256k1':
+        raise InvalidRequestException("Public key is not a valid SECP256K1 public key.")
+
+    return pubkey.public_bytes(
         encoding=serialization.Encoding.DER,
         format=serialization.PublicFormat.SubjectPublicKeyInfo,
     )[-65:]
