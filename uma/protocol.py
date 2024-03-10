@@ -501,7 +501,6 @@ class PubkeyResponse(JSONable):
                     for cert in json_dict["signingCertChain"]
                 ]
                 if "signingCertChain" in json_dict
-                and json_dict["signingCertChain"] is not None
                 else None
             ),
             "encryption_cert_chain": (
@@ -510,25 +509,21 @@ class PubkeyResponse(JSONable):
                     for cert in json_dict["encryptionCertChain"]
                 ]
                 if "encryptionCertChain" in json_dict
-                and json_dict["encryptionCertChain"] is not None
                 else None
             ),
             "signing_pubkey": (
                 bytes.fromhex(json_dict["signingPubKey"])
                 if "signingPubKey" in json_dict
-                and json_dict["signingPubKey"] is not None
                 else None
             ),
             "encryption_pubkey": (
                 bytes.fromhex(json_dict["encryptionPubKey"])
                 if "encryptionPubKey" in json_dict
-                and json_dict["encryptionPubKey"] is not None
                 else None
             ),
             "expiration_timestamp": (
                 datetime.fromtimestamp(json_dict["expirationTimestamp"], timezone.utc)
                 if "expirationTimestamp" in json_dict
-                and json_dict["expirationTimestamp"] is not None
                 else None
             ),
         }
