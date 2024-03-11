@@ -5,7 +5,7 @@ import json
 from typing import Any, Dict, List, Optional
 
 from uma.JSONable import JSONable
-from uma.kyc_status import KycStatus
+from uma.protocol.kyc_status import KycStatus
 
 
 @dataclass

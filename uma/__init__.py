@@ -1,35 +1,40 @@
 # Copyright ©, 2022-present, Lightspark Group, Inc. - All Rights Reserved
 
-from uma.currency import Currency
 from uma.exceptions import *
-from uma.kyc_status import KycStatus
-from uma.payer_data import (
+from uma.nonce_cache import InMemoryNonceCache, INonceCache, InvalidNonceException
+from uma.protocol.counterparty_data import (
+    CounterpartyDataOption,
+    CounterpartyDataOptions,
+    create_counterparty_data_options,
+)
+from uma.protocol.currency import Currency
+from uma.protocol.kyc_status import KycStatus
+from uma.protocol.lnurlp_request import LnurlpRequest
+from uma.protocol.lnurlp_response import LnurlComplianceResponse, LnurlpResponse
+from uma.protocol.payee_data import PayeeData
+from uma.protocol.payer_data import (
     CompliancePayerData,
     PayerData,
     compliance_from_payer_data,
     create_payer_data,
 )
-from uma.protocol import (
-    LnurlComplianceResponse,
-    LnurlpRequest,
-    LnurlpResponse,
+from uma.protocol.payreq import PayRequest
+from uma.protocol.payreq_response import (
     PayReqResponse,
+    PayReqResponseCompliance,
     PayReqResponsePaymentInfo,
-    PayRequest,
-    PubkeyResponse,
-    Route,
-    RoutePath,
-    UtxoWithAmount,
 )
+from uma.protocol.post_tx_callback import PostTransactionCallback, UtxoWithAmount
+from uma.protocol.pubkey_response import PubkeyResponse
 from uma.public_key_cache import InMemoryPublicKeyCache, IPublicKeyCache
-from uma.nonce_cache import INonceCache, InMemoryNonceCache
+from uma.type_utils import none_throws
 from uma.uma import (
     create_compliance_payer_data,
-    create_uma_lnurlp_request_url,
-    create_uma_lnurlp_response,
     create_pay_req_response,
     create_pay_request,
     create_pubkey_response,
+    create_uma_lnurlp_request_url,
+    create_uma_lnurlp_response,
     fetch_public_key_for_vasp,
     generate_nonce,
     get_vasp_domain_from_uma_address,
@@ -38,12 +43,13 @@ from uma.uma import (
     parse_lnurlp_response,
     parse_pay_req_response,
     parse_pay_request,
-    verify_pay_request_signature,
     verify_pay_req_response_signature,
+    verify_pay_request_signature,
     verify_uma_lnurlp_query_signature,
     verify_uma_lnurlp_response_signature,
 )
 from uma.uma_invoice_creator import IUmaInvoiceCreator
+from uma.urls import is_domain_local
 from uma.version import (
     UMA_PROTOCOL_VERSION,
     ParsedVersion,
@@ -53,15 +59,3 @@ from uma.version import (
     select_highest_supported_version,
     select_lower_version,
 )
-from uma.counterparty_data import (
-    CounterpartyDataOption,
-    CounterpartyDataOptions,
-    create_counterparty_data_options,
-)
-from uma.payee_data import (
-    PayeeData,
-    CompliancePayeeData,
-    compliance_from_payee_data,
-)
-from uma.type_utils import none_throws
-from uma.urls import is_domain_local

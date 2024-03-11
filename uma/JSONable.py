@@ -28,7 +28,8 @@ class JSONable(ABC):
                 }
             elif isinstance(value, Enum):
                 value = value.name
-            json_dict[self._get_field_name(key)] = value
+            if value is not None:
+                json_dict[self._get_field_name(key)] = value
         return json_dict
 
     def to_json(self) -> str:

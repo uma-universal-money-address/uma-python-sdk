@@ -10,17 +10,18 @@ from unittest.mock import patch
 import pytest
 from ecies import PrivateKey, decrypt
 from ecies.utils import generate_key
-from uma.counterparty_data import create_counterparty_data_options
+from uma.protocol.counterparty_data import create_counterparty_data_options
 
-from uma.currency import Currency
+from uma.protocol.currency import Currency
 from uma.exceptions import InvalidNonceException, InvalidSignatureException
-from uma.kyc_status import KycStatus
-from uma.payee_data import compliance_from_payee_data
-from uma.payer_data import compliance_from_payer_data
+from uma.protocol.kyc_status import KycStatus
+from uma.protocol.payer_data import compliance_from_payer_data
 from uma.nonce_cache import InMemoryNonceCache
-from uma.public_key_cache import InMemoryPublicKeyCache, PubkeyResponse
+from uma.protocol.pubkey_response import PubkeyResponse
+from uma.public_key_cache import InMemoryPublicKeyCache
 from uma.type_utils import none_throws
-from uma.protocol import UtxoWithAmount
+from uma.protocol.post_tx_callback import UtxoWithAmount
+from uma.protocol.v0.payreq import PayRequest as V0PayRequest
 from uma.uma import (
     create_compliance_payer_data,
     create_pubkey_response,
@@ -109,6 +110,7 @@ def test_pay_request_create_and_parse() -> None:
         is_amount_in_receiving_currency=True,
         amount=amount,
         payer_identifier=payer_identifier,
+        uma_major_version=1,
         payer_name=None,
         payer_email=None,
         payer_compliance=payer_compliance_data,
@@ -176,6 +178,72 @@ def test_lnurlp_query_invalid_path() -> None:
     assert not is_uma_lnurlp_query(url)
 
 
+def test_parse_v0_currency() -> None:
+    v0_currency = {
+        "code": "USD",
+        "name": "US Dollar",
+        "symbol": "$",
+        "minSendable": 1,
+        "maxSendable": 10_000_000,
+        "decimals": 2,
+        "multiplier": 34_150,
+    }
+    currency = Currency.from_json(json.dumps(v0_currency))
+    assert currency.code == "USD"
+    assert currency.name == "US Dollar"
+    assert currency.symbol == "$"
+    assert currency.min_sendable == 1
+    assert currency.max_sendable == 10_000_000
+    assert currency.decimals == 2
+    assert currency.millisatoshi_per_unit == 34_150
+    assert currency.uma_major_version == 0
+
+    assert json.loads(currency.to_json()) == v0_currency
+
+
+def test_parse_v0_pay_request() -> None:
+    (
+        sender_signing_private_key_bytes,
+        sender_signing_public_key_bytes,
+    ) = _create_key_pair()
+    v0_payreq = V0PayRequest(
+        currency_code="USD",
+        amount=100,
+        payer_data={
+            "identifier": "$alice@vasp1.com",
+            "compliance": create_compliance_payer_data(
+                sender_signing_public_key_bytes,
+                sender_signing_private_key_bytes,
+                "$alice@vasp1.com",
+                None,
+                KycStatus.VERIFIED,
+                ["abcdef12345"],
+                None,
+                "utxocallback",
+            ),
+        },
+    )
+    parsed_payreq = parse_pay_request(v0_payreq.to_json())
+    assert parsed_payreq.uma_major_version == 0
+    assert parsed_payreq.receiving_currency_code == "USD"
+    assert compliance_from_payer_data(none_throws(parsed_payreq.payer_data)) is not None
+
+    back_to_json = parsed_payreq.to_json()
+    assert json.loads(back_to_json) == json.loads(v0_payreq.to_json())
+
+
+def test_parse_lnurl_pay_request() -> None:
+    simple_payreq = {"amount": 100}
+    parsed_payreq = parse_pay_request(json.dumps(simple_payreq))
+    assert parsed_payreq.uma_major_version is None
+    assert parsed_payreq.amount == 100
+    assert parsed_payreq.receiving_currency_code is None
+    assert parsed_payreq.payer_data is None
+
+    back_to_json = parsed_payreq.to_json()
+    assert json.loads(back_to_json) == simple_payreq
+
+
 def test_lnurlp_request_url_create_and_parse() -> None:
     private_key = generate_key()
     pubkey_response = _create_pubkey_response(private_key, private_key)
@@ -240,6 +308,7 @@ def test_pay_req_response_create_and_parse() -> None:
         is_amount_in_receiving_currency=True,
         amount=amount,
         payer_identifier=payer_identifier,
+        uma_major_version=1,
         payer_name=None,
         payer_email=None,
         payer_compliance=create_compliance_payer_data(
@@ -278,7 +347,7 @@ def test_pay_req_response_create_and_parse() -> None:
 
     assert response == parse_pay_req_response(response.to_json())
     assert response.encoded_invoice == invoice_creator.DUMMY_INVOICE
-    compliance = compliance_from_payee_data(none_throws(response.payee_data))
+    compliance = response.get_compliance()
     assert compliance is not None
     assert compliance.utxo_callback == receiver_utxo_callback
     assert compliance.utxos == receiver_utxos
@@ -296,6 +365,79 @@ def test_pay_req_response_create_and_parse() -> None:
         other_vasp_pubkeys=receiver_pubkey_response,
         nonce_cache=nonce_cache,
     )
+
+
+def test_v0_pay_req_response_create_and_parse() -> None:
+    sender_signing_private_key_bytes, _ = _create_key_pair()
+    _, receiver_encryption_public_key_bytes = _create_key_pair()
+    (
+        receiver_signing_private_key_bytes,
+        _,
+    ) = _create_key_pair()
+
+    travel_rule_info = "some TR info for VASP2"
+    currency_code = "USD"
+    amount = 100
+    payer_identifier = "$alice@vasp1.com"
+    payer_kyc_status = KycStatus.VERIFIED
+    sender_utxo_callback = "/sender_api/lnurl/utxocallback?txid=1234"
+    node_pubkey = "dummy_node_key"
+    pay_request = create_pay_request(
+        receiving_currency_code=currency_code,
+        is_amount_in_receiving_currency=True,
+        amount=amount,
+        payer_identifier=payer_identifier,
+        uma_major_version=0,
+        payer_name=None,
+        payer_email=None,
+        payer_compliance=create_compliance_payer_data(
+            signing_private_key=sender_signing_private_key_bytes,
+            receiver_encryption_pubkey=receiver_encryption_public_key_bytes,
+            payer_identifier=payer_identifier,
+            travel_rule_info=travel_rule_info,
+            payer_kyc_status=payer_kyc_status,
+            payer_utxos=["abcdef12345"],
+            payer_node_pubkey=node_pubkey,
+            utxo_callback=sender_utxo_callback,
+        ),
+    )
+
+    msats_per_currency_unit = 24_150
+    receiver_fees_msats = 2_000
+    currency_decimals = 2
+    receiver_utxos = ["abcdef12345"]
+    receiver_utxo_callback = "/receiver_api/lnurl/utxocallback?txid=1234"
+    receiver_node_pubkey = "dummy_pub_key"
+    invoice_creator = DummyUmaInvoiceCreator()
+    response = create_pay_req_response(
+        request=pay_request,
+        invoice_creator=invoice_creator,
+        metadata=_create_metadata(),
+        receiving_currency_code=currency_code,
+        receiving_currency_decimals=currency_decimals,
+        msats_per_currency_unit=msats_per_currency_unit,
+        receiver_fees_msats=receiver_fees_msats,
+        receiver_utxos=receiver_utxos,
+        receiver_node_pubkey=receiver_node_pubkey,
+        utxo_callback=receiver_utxo_callback,
+        payee_identifier="$bob@vasp2.com",
+        signing_private_key=receiver_signing_private_key_bytes,
+    )
+
+    assert response == parse_pay_req_response(response.to_json())
+    assert response.encoded_invoice == invoice_creator.DUMMY_INVOICE
+    assert response.uma_major_version == 0
+    compliance = response.get_compliance()
+    assert compliance is not None
+    assert compliance.utxo_callback == receiver_utxo_callback
+    assert compliance.utxos == receiver_utxos
+    assert compliance.node_pubkey == receiver_node_pubkey
+    payment_info = response.payment_info
+    assert payment_info is not None
+    assert payment_info.currency_code == currency_code
+    assert payment_info.decimals == currency_decimals
+    assert payment_info.multiplier == msats_per_currency_unit
+    assert payment_info.exchange_fees_msats == receiver_fees_msats
 
 
 def test_pay_req_with_locked_sending_amount() -> None:
@@ -319,6 +461,7 @@ def test_pay_req_with_locked_sending_amount() -> None:
         is_amount_in_receiving_currency=False,
         amount=amount_msats,
         payer_identifier=payer_identifier,
+        uma_major_version=1,
         payer_name=None,
         payer_email=None,
         payer_compliance=create_compliance_payer_data(
@@ -361,7 +504,7 @@ def test_pay_req_with_locked_sending_amount() -> None:
     assert response == parse_pay_req_response(response.to_json())
     assert invoice_creator.last_requested_invoice_amount == amount_msats
     assert response.encoded_invoice == invoice_creator.DUMMY_INVOICE
-    compliance = compliance_from_payee_data(none_throws(response.payee_data))
+    compliance = response.get_compliance()
     assert compliance is not None
     assert compliance.utxo_callback == receiver_utxo_callback
     assert compliance.utxos == receiver_utxos
@@ -470,6 +613,86 @@ def test_lnurlp_response_create_and_parse() -> None:
         )
 
 
+def test_parse_v0_lnurlp_response() -> None:
+    sender_signing_private_key_bytes, _ = _create_key_pair()
+    (
+        receiver_signing_private_key_bytes,
+        receiver_signing_public_key_bytes,
+    ) = _create_key_pair()
+
+    receiver_address = "bob@vasp2.com"
+    lnurlp_request_url = create_uma_lnurlp_request_url(
+        signing_private_key=sender_signing_private_key_bytes,
+        receiver_address=receiver_address,
+        sender_vasp_domain="vasp1.com",
+        is_subject_to_travel_rule=True,
+        uma_version_override="0.3",
+    )
+    lnurlp_request = parse_lnurlp_request(lnurlp_request_url)
+    metadata = _create_metadata()
+    nonce_cache = InMemoryNonceCache(datetime.fromtimestamp(1, timezone.utc))
+    callback = "https://vasp2.com/api/lnurl/payreq/$bob"
+    min_sendable_sats = 1
+    max_sendable_sats = 10_000_000
+    payer_data_options = create_counterparty_data_options(
+        {"name": False, "email": False, "compliance": True, "identifier": True}
+    )
+    currencies = [
+        Currency(
+            code="USD",
+            name="US Dollar",
+            symbol="$",
+            millisatoshi_per_unit=34_150,
+            max_sendable=max_sendable_sats,
+            min_sendable=min_sendable_sats,
+            decimals=2,
+        )
+    ]
+    is_subject_to_travel_rule = True
+    receiver_kyc_status = KycStatus.VERIFIED
+    response = create_uma_lnurlp_response(
+        request=lnurlp_request,
+        signing_private_key=receiver_signing_private_key_bytes,
+        requires_travel_rule_info=is_subject_to_travel_rule,
+        callback=callback,
+        encoded_metadata=metadata,
+        min_sendable_sats=min_sendable_sats,
+        max_sendable_sats=max_sendable_sats,
+        payer_data_options=payer_data_options,
+        currency_options=currencies,
+        receiver_kyc_status=receiver_kyc_status,
+    )
+
+    result_response = parse_lnurlp_response(response.to_json())
+    assert response == result_response
+    assert result_response.tag == "payRequest"
+    assert result_response.callback == callback
+    assert result_response.max_sendable == max_sendable_sats * 1000
+    assert result_response.min_sendable == min_sendable_sats * 1000
+    assert result_response.encoded_metadata == metadata
+    assert result_response.currencies == currencies
+    assert none_throws(result_response.currencies)[0].uma_major_version == 0
+    assert result_response.uma_version == "0.3"
+    assert result_response.required_payer_data == payer_data_options
+    compliance = result_response.compliance
+    assert compliance is not None
+    assert compliance.kyc_status == receiver_kyc_status
+    assert compliance.is_subject_to_travel_rule == is_subject_to_travel_rule
+    assert compliance.receiver_identifier == receiver_address
+
+    verify_uma_lnurlp_response_signature(
+        result_response, receiver_signing_public_key_bytes, nonce_cache
+    )
+
+    # test invalid signature
+    compliance.signature_nonce = "new_nonce"
+    compliance.signature = secrets.token_hex()
+    with pytest.raises(InvalidSignatureException):
+        verify_uma_lnurlp_response_signature(
+            result_response, receiver_signing_public_key_bytes, nonce_cache
+        )
+
+
 def test_invalid_lnurlp_signature() -> None:
     private_key = generate_key()
     pubkey_response = _create_pubkey_response(private_key, private_key)
@@ -567,6 +790,7 @@ def test_payreq_serialization_in_receiving_currency() -> None:
         is_amount_in_receiving_currency=True,
         amount=amount,
         payer_identifier=payer_identifier,
+        uma_major_version=1,
         payer_name="Alice",
         payer_email=None,
         payer_compliance=None,
@@ -585,6 +809,7 @@ def test_payreq_serialization_in_msats() -> None:
         is_amount_in_receiving_currency=False,
         amount=amount_msats,
         payer_identifier=payer_identifier,
+        uma_major_version=1,
         payer_name="Alice",
         payer_email=None,
         payer_compliance=None,
