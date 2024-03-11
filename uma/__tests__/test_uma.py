@@ -652,8 +652,8 @@ def test_pubkey_response_create_and_serialize() -> None:
     assert 2 == len(pubkey_response.encryption_cert_chain)
 
     pubkey = "04419c5467ea563f0010fd614f85e885ac99c21b8e8d416241175fdd5efd2244fe907e2e6fa3dd6631b1b17cd28798da8d882a34c4776d44cc4090781c7aadea1b"
-    assert pubkey == pubkey_response.get_signing_pubkey().hex()
-    assert pubkey == pubkey_response.get_encryption_pubkey().hex()
+    assert bytes.fromhex(pubkey) == pubkey_response.get_signing_pubkey()
+    assert bytes.fromhex(pubkey) == pubkey_response.get_encryption_pubkey()
 
     json_response = pubkey_response.to_json()
     result_pubkey_response = parse_pubkey_response(json_response)
@@ -665,3 +665,19 @@ def test_pubkey_response_create_and_serialize() -> None:
     json_response = keys_only_response.to_json()
     result_pubkey_response = parse_pubkey_response(json_response)
     assert keys_only_response == result_pubkey_response
+
+    certs_only_response = PubkeyResponse(
+        pubkey_response.signing_cert_chain,
+        pubkey_response.encryption_cert_chain,
+        None,
+        None,
+        None,
+    )
+    json_response = certs_only_response.to_json()
+    result_pubkey_response = parse_pubkey_response(json_response)
+    assert result_pubkey_response.signing_pubkey is not None
+    assert result_pubkey_response.encryption_pubkey is not None
+    assert bytes.fromhex(pubkey) == result_pubkey_response.signing_pubkey
+    assert bytes.fromhex(pubkey) == result_pubkey_response.encryption_pubkey
+    assert bytes.fromhex(pubkey) == pubkey_response.get_signing_pubkey()
+    assert bytes.fromhex(pubkey) == pubkey_response.get_encryption_pubkey()

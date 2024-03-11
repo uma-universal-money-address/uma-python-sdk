@@ -472,16 +472,20 @@ class PubkeyResponse(JSONable):
 
     def to_dict(self) -> Dict[str, Any]:
         json_dict: Dict[str, Any] = {}
-        if self.signing_cert_chain:
+        signing_cert_chain = self.signing_cert_chain
+        encryption_cert_chain = self.encryption_cert_chain
+        if signing_cert_chain:
             json_dict["signingCertChain"] = [
                 cert.public_bytes(encoding=serialization.Encoding.PEM).hex()
-                for cert in self.signing_cert_chain
+                for cert in signing_cert_chain
             ]
-        if self.encryption_cert_chain:
+            json_dict["signingPubKey"] = get_pubkey(signing_cert_chain[0]).hex()
+        if encryption_cert_chain:
             json_dict["encryptionCertChain"] = [
                 cert.public_bytes(encoding=serialization.Encoding.PEM).hex()
-                for cert in self.encryption_cert_chain
+                for cert in encryption_cert_chain
             ]
+            json_dict["encryptionPubKey"] = get_pubkey(encryption_cert_chain[0]).hex()
         if self.signing_pubkey:
             json_dict["signingPubKey"] = self.signing_pubkey.hex()
         if self.encryption_pubkey:
