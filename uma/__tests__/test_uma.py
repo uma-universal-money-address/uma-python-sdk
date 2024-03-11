@@ -202,18 +202,19 @@ def test_parse_v0_currency() -> None:
 
 
 def test_parse_v0_pay_request() -> None:
-    (
-        sender_signing_private_key_bytes,
-        sender_signing_public_key_bytes,
-    ) = _create_key_pair()
+    sender_private_key = generate_key()
+    receiver_private_key = generate_key()
+    receiver_pubkey_response = _create_pubkey_response(
+        receiver_private_key, receiver_private_key
+    )
     v0_payreq = V0PayRequest(
         currency_code="USD",
         amount=100,
         payer_data={
             "identifier": "$alice@vasp1.com",
             "compliance": create_compliance_payer_data(
-                sender_signing_public_key_bytes,
-                sender_signing_private_key_bytes,
+                receiver_pubkey_response.get_encryption_pubkey(),
+                sender_private_key.secret,
                 "$alice@vasp1.com",
                 None,
                 KycStatus.VERIFIED,
@@ -288,9 +289,6 @@ class DummyUmaInvoiceCreator(IUmaInvoiceCreator):
 
 def test_pay_req_response_create_and_parse() -> None:
     sender_private_key = generate_key()
-    sender_pubkey_response = _create_pubkey_response(
-        sender_private_key, sender_private_key
-    )
     receiver_private_key = generate_key()
     receiver_pubkey_response = _create_pubkey_response(
         receiver_private_key, receiver_private_key
@@ -368,12 +366,11 @@ def test_pay_req_response_create_and_parse() -> None:
 
 
 def test_v0_pay_req_response_create_and_parse() -> None:
-    sender_signing_private_key_bytes, _ = _create_key_pair()
-    _, receiver_encryption_public_key_bytes = _create_key_pair()
-    (
-        receiver_signing_private_key_bytes,
-        _,
-    ) = _create_key_pair()
+    sender_private_key = generate_key()
+    receiver_private_key = generate_key()
+    receiver_pubkey_response = _create_pubkey_response(
+        receiver_private_key, receiver_private_key
+    )
 
     travel_rule_info = "some TR info for VASP2"
     currency_code = "USD"
@@ -391,8 +388,8 @@ def test_v0_pay_req_response_create_and_parse() -> None:
         payer_name=None,
         payer_email=None,
         payer_compliance=create_compliance_payer_data(
-            signing_private_key=sender_signing_private_key_bytes,
-            receiver_encryption_pubkey=receiver_encryption_public_key_bytes,
+            signing_private_key=sender_private_key.secret,
+            receiver_encryption_pubkey=receiver_pubkey_response.get_encryption_pubkey(),
             payer_identifier=payer_identifier,
             travel_rule_info=travel_rule_info,
             payer_kyc_status=payer_kyc_status,
@@ -421,7 +418,7 @@ def test_v0_pay_req_response_create_and_parse() -> None:
         receiver_node_pubkey=receiver_node_pubkey,
         utxo_callback=receiver_utxo_callback,
         payee_identifier="$bob@vasp2.com",
-        signing_private_key=receiver_signing_private_key_bytes,
+        signing_private_key=receiver_private_key.secret,
     )
 
     assert response == parse_pay_req_response(response.to_json())
@@ -614,15 +611,15 @@ def test_lnurlp_response_create_and_parse() -> None:
 
 
 def test_parse_v0_lnurlp_response() -> None:
-    sender_signing_private_key_bytes, _ = _create_key_pair()
-    (
-        receiver_signing_private_key_bytes,
-        receiver_signing_public_key_bytes,
-    ) = _create_key_pair()
+    sender_private_key = generate_key()
+    receiver_private_key = generate_key()
+    receiver_pubkey_response = _create_pubkey_response(
+        receiver_private_key, receiver_private_key
+    )
 
     receiver_address = "bob@vasp2.com"
     lnurlp_request_url = create_uma_lnurlp_request_url(
-        signing_private_key=sender_signing_private_key_bytes,
+        signing_private_key=sender_private_key.secret,
         receiver_address=receiver_address,
         sender_vasp_domain="vasp1.com",
         is_subject_to_travel_rule=True,
@@ -652,7 +649,7 @@ def test_parse_v0_lnurlp_response() -> None:
     receiver_kyc_status = KycStatus.VERIFIED
     response = create_uma_lnurlp_response(
         request=lnurlp_request,
-        signing_private_key=receiver_signing_private_key_bytes,
+        signing_private_key=receiver_private_key.secret,
         requires_travel_rule_info=is_subject_to_travel_rule,
         callback=callback,
         encoded_metadata=metadata,
@@ -681,7 +678,7 @@ def test_parse_v0_lnurlp_response() -> None:
     assert compliance.receiver_identifier == receiver_address
 
     verify_uma_lnurlp_response_signature(
-        result_response, receiver_signing_public_key_bytes, nonce_cache
+        result_response, receiver_pubkey_response, nonce_cache
     )
 
     # test invalid signature
@@ -689,7 +686,7 @@ def test_parse_v0_lnurlp_response() -> None:
     compliance.signature = secrets.token_hex()
     with pytest.raises(InvalidSignatureException):
         verify_uma_lnurlp_response_signature(
-            result_response, receiver_signing_public_key_bytes, nonce_cache
+            result_response, receiver_pubkey_response, nonce_cache
         )
 
 
