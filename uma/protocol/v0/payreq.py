@@ -1,7 +1,7 @@
 # Copyright ©, 2022-present, Lightspark Group, Inc. - All Rights Reserved
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 from uma.JSONable import JSONable
 from uma.protocol.counterparty_data import CounterpartyDataOptions

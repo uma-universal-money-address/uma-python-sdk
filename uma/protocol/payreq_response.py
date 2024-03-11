@@ -217,6 +217,7 @@ class PayReqResponse(JSONable):
             data["payee_data"] = {"compliance": json_dict.pop("compliance")}
 
         if "paymentInfo" in json_dict and "converted" not in json_dict:
+            # pylint: disable=protected-access
             data["payment_info"] = PayReqResponsePaymentInfo(
                 **PayReqResponsePaymentInfo._from_dict(json_dict.pop("paymentInfo"))
             )

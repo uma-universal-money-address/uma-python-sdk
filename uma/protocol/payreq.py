@@ -133,13 +133,12 @@ class PayRequest(JSONable):
                 comment=v1_payreq.comment,
                 uma_major_version=1,
             )
-        else:
-            v0_payreq = V0PayRequest.from_json(json_encoded)
-            return PayRequest(
-                sending_amount_currency_code=v0_payreq.currency_code,
-                receiving_currency_code=v0_payreq.currency_code,
-                amount=v0_payreq.amount,
-                payer_data=v0_payreq.payer_data,
-                requested_payee_data=None,
-                uma_major_version=0 if is_v0 else None,
-            )
+        v0_payreq = V0PayRequest.from_json(json_encoded)
+        return PayRequest(
+            sending_amount_currency_code=v0_payreq.currency_code,
+            receiving_currency_code=v0_payreq.currency_code,
+            amount=v0_payreq.amount,
+            payer_data=v0_payreq.payer_data,
+            requested_payee_data=None,
+            uma_major_version=0 if is_v0 else None,
+        )

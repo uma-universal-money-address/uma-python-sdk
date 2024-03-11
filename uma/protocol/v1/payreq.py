@@ -1,11 +1,10 @@
 # Copyright ©, 2022-present, Lightspark Group, Inc. - All Rights Reserved
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from uma.protocol.counterparty_data import CounterpartyDataOptions
 from uma.JSONable import JSONable
-from uma.protocol.payee_data import PayeeData
 from uma.protocol.payer_data import PayerData
 
 
