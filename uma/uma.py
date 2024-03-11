@@ -748,12 +748,20 @@ def verify_post_transaction_callback_signature(
         other_vasp_signing_pubkey: the public key of the counterparty VASP.
         nonce_cache: the nonce cache used to prevent replay attacks.
     """
+    if (
+        not callback.signature
+        or not callback.signature_nonce
+        or not callback.signature_timestamp
+    ):
+        raise InvalidRequestException(
+            "Missing post transaction callback signature, nonce, or timestamp. Is this an UMA v0 callback? If so, don't verify the signature."
+        )
     nonce_cache.check_and_save_nonce(
         callback.signature_nonce,
         datetime.fromtimestamp(callback.signature_timestamp, timezone.utc),
     )
     _verify_signature(
         callback.signable_payload(),
-        callback.signature,
+        none_throws(callback.signature),
         other_vasp_pubkeys.get_signing_pubkey(),
     )

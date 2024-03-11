@@ -118,14 +118,12 @@ class PayReqResponsePaymentInfo(JSONable):
 
     @classmethod
     def _from_dict(cls, json_dict: Dict[str, Any]) -> Dict[str, Any]:
-        data = super()._from_dict(json_dict)
-
         # For backwards-compatibility with UMA v0, pull fees from v0 name if
         # not present in v1 name:
         if "fee" not in json_dict:
-            data["fee"] = json_dict.pop("exchangeFeesMillisatoshi", 0)
+            json_dict["fee"] = json_dict.pop("exchangeFeesMillisatoshi", 0)
 
-        return data
+        return super()._from_dict(json_dict)
 
 
 @dataclass

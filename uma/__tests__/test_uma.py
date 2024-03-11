@@ -398,6 +398,8 @@ def test_v0_pay_req_response_create_and_parse() -> None:
             utxo_callback=sender_utxo_callback,
         ),
     )
+    payreq_json_dict = json.loads(pay_request.to_json())
+    assert payreq_json_dict["currency"] == "USD"
 
     msats_per_currency_unit = 24_150
     receiver_fees_msats = 2_000
