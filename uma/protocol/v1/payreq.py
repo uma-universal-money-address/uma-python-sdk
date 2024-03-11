@@ -79,7 +79,7 @@ class PayRequest(JSONable):
         result_dict["amount"] = (
             f"{result_dict['amount']}.{sending_currency}"
             if sending_currency and sending_currency.upper() != "SAT"
-            else str(result_dict["amount"])
+            else result_dict["amount"]
         )
         return result_dict
 
@@ -89,7 +89,7 @@ class PayRequest(JSONable):
         if "convert" in json_dict:
             data["receiving_currency_code"] = json_dict.pop("convert")
         if "amount" in data:
-            amount = data.pop("amount")
+            amount = str(data.pop("amount"))
             if "." in amount:
                 [amount, currency] = amount.split(".")
                 data["amount"] = int(amount)

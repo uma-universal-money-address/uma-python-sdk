@@ -1,7 +1,7 @@
 # Copyright ©, 2022-present, Lightspark Group, Inc. - All Rights Reserved
 
 from dataclasses import dataclass
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
 from uma.JSONable import JSONable
 from uma.protocol.counterparty_data import CounterpartyDataOptions
@@ -43,3 +43,11 @@ class PayRequest(JSONable):
     @classmethod
     def _get_field_name_overrides(cls) -> Dict[str, str]:
         return {"currency_code": "currency"}
+
+    @classmethod
+    def _from_dict(cls, json_dict: Dict[str, Any]) -> Dict[str, Any]:
+        data = super()._from_dict(json_dict)
+        amount = data.get("amount")
+        if isinstance(amount, str):
+            data["amount"] = int(amount)
+        return data

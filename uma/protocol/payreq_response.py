@@ -199,7 +199,7 @@ class PayReqResponse(JSONable):
             if self.payment_info:
                 resp["paymentInfo"] = self.payment_info.to_dict()
                 resp.pop("converted", None)
-        resp.pop("umaMajorVersion")
+        resp.pop("umaMajorVersion", None)
 
         return resp
 

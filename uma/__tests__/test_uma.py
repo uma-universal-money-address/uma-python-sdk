@@ -795,6 +795,8 @@ def test_payreq_serialization_in_receiving_currency() -> None:
     payreq_json = json.loads(pay_request.to_json())
     assert payreq_json["amount"] == "100.USD"
     assert payreq_json["convert"] == "USD"
+    deserialized_payreq = parse_pay_request(json.dumps(payreq_json))
+    assert deserialized_payreq.amount == amount
 
 
 def test_payreq_serialization_in_msats() -> None:
@@ -812,7 +814,7 @@ def test_payreq_serialization_in_msats() -> None:
         payer_compliance=None,
     )
     payreq_json = json.loads(pay_request.to_json())
-    assert payreq_json["amount"] == str(amount_msats)
+    assert payreq_json["amount"] == amount_msats
     assert payreq_json["convert"] == "USD"
 
 

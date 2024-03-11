@@ -45,6 +45,7 @@ from uma.uma import (
     parse_pay_request,
     verify_pay_req_response_signature,
     verify_pay_request_signature,
+    verify_post_transaction_callback_signature,
     verify_uma_lnurlp_query_signature,
     verify_uma_lnurlp_response_signature,
 )

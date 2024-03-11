@@ -100,7 +100,7 @@ class PayRequest(JSONable):
                 requested_payee_data=self.requested_payee_data,
                 comment=self.comment,
             )
-            if self.uma_major_version == 0 or self.uma_major_version is None
+            if self.uma_major_version == 0
             else V1PayRequest(
                 sending_amount_currency_code=self.sending_amount_currency_code,
                 receiving_currency_code=self.receiving_currency_code,
@@ -119,10 +119,10 @@ class PayRequest(JSONable):
             json_dict["amount"], str
         )
         is_uma = "payerData" in json_dict and "compliance" in json_dict["payerData"]
-        is_v1 = ("convert" in json_dict or is_amount_string) and is_uma
+        is_v1 = ("convert" in json_dict) and is_uma
         is_v0 = "currency" in json_dict and is_uma
 
-        if is_v1:
+        if is_v1 or is_amount_string:
             v1_payreq = V1PayRequest.from_json(json_encoded)
             return PayRequest(
                 sending_amount_currency_code=v1_payreq.sending_amount_currency_code,
