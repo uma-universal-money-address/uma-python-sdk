@@ -14,6 +14,7 @@ from coincurve.keys import PrivateKey, PublicKey
 from ecies import encrypt
 from uma.counterparty_data import CounterpartyDataOptions
 
+from uma.cert_utils import get_pubkey, get_x509_certs
 from uma.currency import Currency
 from uma.exceptions import (
     InvalidCurrencyException,
@@ -73,6 +74,36 @@ def fetch_public_key_for_vasp(
     return public_key
 
 
+def create_pubkey_response(
+    signing_cert_chain: str,
+    encryption_cert_chain: str,
+    expiration_timestamp: Optional[datetime] = None,
+) -> PubkeyResponse:
+    """
+    Creates a pubkey response.
+
+    Args:
+        signing_cert_chain: the chain of signing certificates in PEM format.
+            The order of the certificates should be from the leaf to the root.
+        encryption_cert_chain: the chain of encryption certificates in PEM format.
+            The order of the certificates should be from the leaf to the root.
+        expiration_timestamp: the expiration timestamp of the public keys.
+    """
+    signing_certs = get_x509_certs(signing_cert_chain)
+    encryption_certs = get_x509_certs(encryption_cert_chain)
+    return PubkeyResponse(
+        signing_certs,
+        encryption_certs,
+        get_pubkey(signing_certs[0]),
+        get_pubkey(encryption_certs[0]),
+        expiration_timestamp,
+    )
+
+
+def parse_pubkey_response(response: str) -> PubkeyResponse:
+    return PubkeyResponse.from_json(response)
+
+
 def _run_http_get(url: str) -> str:
     session = requests.session()
     response = session.get(url=url)
@@ -92,7 +123,7 @@ def _sign_payload(payload: bytes, private_key: bytes) -> str:
 
 
 def verify_pay_request_signature(
-    request: PayRequest, other_vasp_signing_pubkey: bytes, nonce_cache: INonceCache
+    request: PayRequest, other_vasp_pubkeys: PubkeyResponse, nonce_cache: INonceCache
 ) -> None:
     if not request.payer_data:
         raise InvalidRequestException(
@@ -110,7 +141,7 @@ def verify_pay_request_signature(
     _verify_signature(
         request.signable_payload(),
         compliance_data.signature,
-        other_vasp_signing_pubkey,
+        other_vasp_pubkeys.get_signing_pubkey(),
     )
 
 
@@ -347,7 +378,7 @@ def is_uma_lnurlp_query(url: str) -> bool:
 
 
 def verify_uma_lnurlp_query_signature(
-    request: LnurlpRequest, other_vasp_signing_pubkey: bytes, nonce_cache: INonceCache
+    request: LnurlpRequest, other_vasp_pubkeys: PubkeyResponse, nonce_cache: INonceCache
 ) -> None:
     """
     Verifies the signature on an uma Lnurlp query based on the public key of the VASP making the request.
@@ -365,7 +396,7 @@ def verify_uma_lnurlp_query_signature(
     _verify_signature(
         request.signable_payload(),
         none_throws(request.signature),
-        other_vasp_signing_pubkey,
+        other_vasp_pubkeys.get_signing_pubkey(),
     )
 
 
@@ -519,7 +550,7 @@ def verify_pay_req_response_signature(
     sender_address: str,
     receiver_address: str,
     response: PayReqResponse,
-    other_vasp_signing_pubkey: bytes,
+    other_vasp_pubkeys: PubkeyResponse,
     nonce_cache: INonceCache,
 ) -> None:
     if not response.payee_data:
@@ -537,7 +568,7 @@ def verify_pay_req_response_signature(
     _verify_signature(
         compliance_data.signable_payload(sender_address, receiver_address),
         compliance_data.signature,
-        other_vasp_signing_pubkey,
+        other_vasp_pubkeys.get_signing_pubkey(),
     )
 
 
@@ -611,7 +642,9 @@ def parse_lnurlp_response(payload: str) -> LnurlpResponse:
 
 
 def verify_uma_lnurlp_response_signature(
-    response: LnurlpResponse, other_vasp_signing_pubkey: bytes, nonce_cache: INonceCache
+    response: LnurlpResponse,
+    other_vasp_pubkeys: PubkeyResponse,
+    nonce_cache: INonceCache,
 ) -> None:
     if not response.compliance:
         raise InvalidRequestException("Missing compliance data in response")
@@ -623,7 +656,7 @@ def verify_uma_lnurlp_response_signature(
     _verify_signature(
         response.signable_payload(),
         none_throws(response.compliance).signature,
-        other_vasp_signing_pubkey,
+        other_vasp_pubkeys.get_signing_pubkey(),
     )
 
 
@@ -688,7 +721,7 @@ def parse_post_transaction_callback(payload: str) -> PostTransactionCallback:
 
 def verify_post_transaction_callback_signature(
     callback: PostTransactionCallback,
-    other_vasp_signing_pubkey: bytes,
+    other_vasp_pubkeys: PubkeyResponse,
     nonce_cache: INonceCache,
 ) -> None:
     """
@@ -706,5 +739,5 @@ def verify_post_transaction_callback_signature(
     _verify_signature(
         callback.signable_payload(),
         callback.signature,
-        other_vasp_signing_pubkey,
+        other_vasp_pubkeys.get_signing_pubkey(),
     )
