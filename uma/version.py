@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from functools import total_ordering
 from typing import List, Optional
 
+BACK_COMPATIBLE_VERSIONS = ["0.3"]
 MAJOR_VERSION = 1
 MINOR_VERSION = 0
 UMA_PROTOCOL_VERSION = f"{MAJOR_VERSION}.{MINOR_VERSION}"
@@ -35,7 +36,9 @@ def get_supported_major_versions() -> List[int]:
     In the future, we may want to support multiple major versions in the same SDK,
     but for now, this keeps things simple.
     """
-    return [MAJOR_VERSION]
+    return [MAJOR_VERSION] + [
+        ParsedVersion.load(v).major for v in BACK_COMPATIBLE_VERSIONS
+    ]
 
 
 def get_highest_supported_version_for_major_version(
@@ -45,11 +48,15 @@ def get_highest_supported_version_for_major_version(
     Note that this also only supports a single major version for now. If we support
     more than one major version in the future, we'll need to change this.
     """
-    return (
-        ParsedVersion.load(UMA_PROTOCOL_VERSION)
-        if major_version == MAJOR_VERSION
-        else None
-    )
+    if major_version == MAJOR_VERSION:
+        return ParsedVersion.load(UMA_PROTOCOL_VERSION)
+
+    for version in BACK_COMPATIBLE_VERSIONS:
+        parsed_version = ParsedVersion.load(version)
+        if parsed_version.major == major_version:
+            return parsed_version
+
+    return None
 
 
 def select_highest_supported_version(

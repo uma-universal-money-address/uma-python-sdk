@@ -1,53 +1,52 @@
 # Copyright ©, 2022-present, Lightspark Group, Inc. - All Rights Reserved
 import json
-from math import floor
 import random
 from datetime import datetime, timezone
+from math import floor
 from typing import Dict, List, Optional
 from urllib.parse import parse_qs, urlparse
 
 import requests
+from coincurve.ecdsa import cdata_to_der, der_to_cdata, signature_normalize
+from coincurve.keys import PrivateKey, PublicKey
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import serialization
-from coincurve.ecdsa import signature_normalize, der_to_cdata, cdata_to_der
-from coincurve.keys import PrivateKey, PublicKey
 from ecies import encrypt
-from uma.counterparty_data import CounterpartyDataOptions
 
 from uma.cert_utils import get_pubkey, get_x509_certs
-from uma.currency import Currency
 from uma.exceptions import (
     InvalidCurrencyException,
     InvalidRequestException,
     InvalidSignatureException,
     UnsupportedVersionException,
 )
-from uma.kyc_status import KycStatus
-from uma.payee_data import CompliancePayeeData, compliance_from_payee_data
-from uma.payer_data import (
+from uma.nonce_cache import INonceCache
+from uma.protocol.counterparty_data import CounterpartyDataOptions
+from uma.protocol.currency import Currency
+from uma.protocol.kyc_status import KycStatus
+from uma.protocol.lnurlp_request import LnurlpRequest
+from uma.protocol.lnurlp_response import LnurlComplianceResponse, LnurlpResponse
+from uma.protocol.payer_data import (
     CompliancePayerData,
     PayerData,
     compliance_from_payer_data,
     create_payer_data,
 )
-from uma.nonce_cache import INonceCache
-from uma.protocol import (
-    LnurlComplianceResponse,
-    LnurlpRequest,
-    LnurlpResponse,
+from uma.protocol.payreq import PayRequest
+from uma.protocol.payreq_response import (
     PayReqResponse,
+    PayReqResponseCompliance,
     PayReqResponsePaymentInfo,
-    PayRequest,
-    PostTransactionCallback,
-    PubkeyResponse,
-    UtxoWithAmount,
 )
+from uma.protocol.post_tx_callback import PostTransactionCallback, UtxoWithAmount
+from uma.protocol.pubkey_response import PubkeyResponse
 from uma.public_key_cache import IPublicKeyCache
 from uma.type_utils import none_throws
 from uma.uma_invoice_creator import IUmaInvoiceCreator
 from uma.urls import is_domain_local
 from uma.version import (
     UMA_PROTOCOL_VERSION,
+    ParsedVersion,
     get_supported_major_versions,
     is_version_supported,
     select_lower_version,
@@ -237,6 +236,7 @@ def create_pay_request(
     amount: int,
     is_amount_in_receiving_currency: bool,
     payer_identifier: str,
+    uma_major_version: int,
     payer_name: Optional[str],
     payer_email: Optional[str],
     payer_compliance: Optional[CompliancePayerData],
@@ -254,6 +254,9 @@ def create_pay_request(
         is_amount_in_receiving_currency: Whether the amount field is specified in the smallest unit
             of the receiving currency or in msats (if false).
         payer_identifier: The UMA address of the sender. For example, $alice@vasp.com.
+        uma_major_version: The major version of the UMA protocol that this currency adheres to.
+            If non-UMA, this version is still relevant for which LUD-21 spec to follow. For the older
+            LUD-21 spec, this should be 0. For the newer LUD-21 spec, this should be 1.
         payer_name: The name of the sender if requested by the receiver.
         payer_email: The email of the sender if requested by the receiver.
         payer_compliance: The compliance data of the sender. This is REQUIRED for UMA payments,
@@ -279,6 +282,7 @@ def create_pay_request(
         ),
         requested_payee_data=requested_payee_data,
         comment=comment,
+        uma_major_version=uma_major_version,
     )
 
 
@@ -515,6 +519,7 @@ def create_pay_req_response(
         ),
         disposable=disposable,
         success_action=success_action,
+        uma_major_version=request.uma_major_version,
     )
 
 
@@ -525,10 +530,10 @@ def _create_compliance_payee_data(
     receiver_utxos: List[str],
     receiver_node_pubkey: Optional[str],
     utxo_callback: str,
-) -> CompliancePayeeData:
+) -> PayReqResponseCompliance:
     timestamp = int(datetime.now(timezone.utc).timestamp())
     nonce = generate_nonce()
-    compliance_payee_data = CompliancePayeeData(
+    compliance_payee_data = PayReqResponseCompliance(
         utxos=receiver_utxos,
         utxo_callback=utxo_callback,
         node_pubkey=receiver_node_pubkey,
@@ -557,17 +562,24 @@ def verify_pay_req_response_signature(
         raise InvalidRequestException(
             "Missing payee data in response. Cannot verify signature."
         )
-    compliance_data = compliance_from_payee_data(response.payee_data)
+    compliance_data = response.get_compliance()
     if not compliance_data:
         raise InvalidRequestException("Missing compliance data in response")
 
+    if response.uma_major_version != 1:
+        raise InvalidRequestException(
+            "Signatures were added to payreq responses in UMA v1. This response is from an UMA v0 receiving VASP."
+        )
+
     nonce_cache.check_and_save_nonce(
-        compliance_data.signature_nonce,
-        datetime.fromtimestamp(compliance_data.signature_timestamp, timezone.utc),
+        none_throws(compliance_data.signature_nonce),
+        datetime.fromtimestamp(
+            none_throws(compliance_data.signature_timestamp), timezone.utc
+        ),
     )
     _verify_signature(
         compliance_data.signable_payload(sender_address, receiver_address),
-        compliance_data.signature,
+        none_throws(compliance_data.signature),
         other_vasp_pubkeys.get_signing_pubkey(),
     )
 
@@ -601,6 +613,10 @@ def create_uma_lnurlp_response(
         receiver_kyc_status=receiver_kyc_status,
     )
     _validate_currency_options(currency_options)
+    # Ensure correct serializing for UMA V0:
+    if ParsedVersion.load(uma_version).major == 0:
+        for currency in currency_options:
+            currency.uma_major_version = 0
     return LnurlpResponse(
         tag="payRequest",
         callback=callback,
@@ -732,12 +748,20 @@ def verify_post_transaction_callback_signature(
         other_vasp_signing_pubkey: the public key of the counterparty VASP.
         nonce_cache: the nonce cache used to prevent replay attacks.
     """
+    if (
+        not callback.signature
+        or not callback.signature_nonce
+        or not callback.signature_timestamp
+    ):
+        raise InvalidRequestException(
+            "Missing post transaction callback signature, nonce, or timestamp. Is this an UMA v0 callback? If so, don't verify the signature."
+        )
     nonce_cache.check_and_save_nonce(
         callback.signature_nonce,
         datetime.fromtimestamp(callback.signature_timestamp, timezone.utc),
     )
     _verify_signature(
         callback.signable_payload(),
-        callback.signature,
+        none_throws(callback.signature),
         other_vasp_pubkeys.get_signing_pubkey(),
     )
