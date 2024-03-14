@@ -874,8 +874,8 @@ def test_pubkey_response_create_and_serialize() -> None:
         -----END CERTIFICATE-----"""
     pubkey_response = create_pubkey_response(pem_string, pem_string)
     assert pubkey_response is not None
-    assert 2 == len(pubkey_response.signing_cert_chain)
-    assert 2 == len(pubkey_response.encryption_cert_chain)
+    assert 2 == len(none_throws(pubkey_response.signing_cert_chain))
+    assert 2 == len(none_throws(pubkey_response.encryption_cert_chain))
 
     pubkey = "04419c5467ea563f0010fd614f85e885ac99c21b8e8d416241175fdd5efd2244fe907e2e6fa3dd6631b1b17cd28798da8d882a34c4776d44cc4090781c7aadea1b"
     assert bytes.fromhex(pubkey) == pubkey_response.get_signing_pubkey()

@@ -87,19 +87,6 @@ class Currency(JSONable):
         ).to_dict()
 
     @classmethod
-    def _from_dict(cls, json_dict: Dict[str, Any]) -> Dict[str, Any]:
-        is_v0 = "minSendable" in json_dict
-        # pylint: disable=protected-access
-        currency_dict = (
-            V0Currency._from_dict(json_dict)
-            if is_v0
-            else V1Currency._from_dict(json_dict)
-        )
-        currency_dict["uma_major_version"] = 0 if is_v0 else 1
-
-        return currency_dict
-
-    @classmethod
     def from_json(cls: "type[Currency]", json_encoded: str) -> "Currency":
         json_dict = json.loads(json_encoded)
         is_v0 = "minSendable" in json_dict
