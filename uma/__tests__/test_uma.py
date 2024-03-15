@@ -611,8 +611,9 @@ def test_lnurlp_response_create_and_parse() -> None:
             result_response, receiver_pubkey_response, nonce_cache
         )
 
+
 def test_direct_lnurlp_response_v1_parse() -> None:
-    response_json = '''{"allowsNostr":false,"callback":"https://umav1.jeremykle.in/api/uma/payreq/1","compliance":{"isSubjectToTravelRule":true,"kycStatus":"VERIFIED","receiverIdentifier":"$jeremy@umav1.jeremykle.in","signature":"30450221009054c39a4c2ef4905e750ca064cb9d05fe28c377019021b723751bc058bea1de02203f35c24d434a9599efd6d616c06154749ccf3f960da8bcb278404b329fc4aaf7","signatureNonce":"551781159","signatureTimestamp":1710524382},"currencies":[{"code":"SAT","convertible":{"max":10000000,"min":1},"decimals":0,"multiplier":1000.0,"name":"Satoshi","symbol":""},{"code":"USD","convertible":{"max":10000000,"min":1},"decimals":2,"multiplier":22883.56,"name":"US Dollar","symbol":"$"}],"maxSendable":10000000000,"metadata":"[[\\"text/plain\\", \\"Pay to umav1.jeremykle.in user Jeremy LastName\\"], [\\"text/identifier\\", \\"$jeremy@umav1.jeremykle.in\\"]]","minSendable":1000,"payerData":{"compliance":{"mandatory":true},"email":{"mandatory":false},"identifier":{"mandatory":true},"name":{"mandatory":false}},"tag":"payRequest","umaVersion":"1.0"}'''
+    response_json = """{"allowsNostr":false,"callback":"https://umav1.jeremykle.in/api/uma/payreq/1","compliance":{"isSubjectToTravelRule":true,"kycStatus":"VERIFIED","receiverIdentifier":"$jeremy@umav1.jeremykle.in","signature":"30450221009054c39a4c2ef4905e750ca064cb9d05fe28c377019021b723751bc058bea1de02203f35c24d434a9599efd6d616c06154749ccf3f960da8bcb278404b329fc4aaf7","signatureNonce":"551781159","signatureTimestamp":1710524382},"currencies":[{"code":"SAT","convertible":{"max":10000000,"min":1},"decimals":0,"multiplier":1000.0,"name":"Satoshi","symbol":""},{"code":"USD","convertible":{"max":10000000,"min":1},"decimals":2,"multiplier":22883.56,"name":"US Dollar","symbol":"$"}],"maxSendable":10000000000,"metadata":"[[\\"text/plain\\", \\"Pay to umav1.jeremykle.in user Jeremy LastName\\"], [\\"text/identifier\\", \\"$jeremy@umav1.jeremykle.in\\"]]","minSendable":1000,"payerData":{"compliance":{"mandatory":true},"email":{"mandatory":false},"identifier":{"mandatory":true},"name":{"mandatory":false}},"tag":"payRequest","umaVersion":"1.0"}"""
     result_response = parse_lnurlp_response(response_json)
     assert result_response.tag == "payRequest"
     assert result_response.callback == "https://umav1.jeremykle.in/api/uma/payreq/1"
@@ -620,8 +621,9 @@ def test_direct_lnurlp_response_v1_parse() -> None:
     assert result_response.min_sendable == 1000
     assert none_throws(result_response.currencies)[0].uma_major_version == 1
 
+
 def test_direct_lnurlp_response_v0_parse() -> None:
-    response_json = '''{"allowsNostr":false,"callback":"https://umav1.jeremykle.in/api/uma/payreq/1","compliance":{"isSubjectToTravelRule":true,"kycStatus":"VERIFIED","receiverIdentifier":"$jeremy@umav1.jeremykle.in","signature":"30450221009054c39a4c2ef4905e750ca064cb9d05fe28c377019021b723751bc058bea1de02203f35c24d434a9599efd6d616c06154749ccf3f960da8bcb278404b329fc4aaf7","signatureNonce":"551781159","signatureTimestamp":1710524382},"currencies":[{"code":"SAT","maxSendable":10000000,"minSendable":1,"decimals":0,"multiplier":1000.0,"name":"Satoshi","symbol":""},{"code":"USD","maxSendable":10000000,"minSendable":1,"decimals":2,"multiplier":22883.56,"name":"US Dollar","symbol":"$"}],"maxSendable":10000000000,"metadata":"[[\\"text/plain\\", \\"Pay to umav1.jeremykle.in user Jeremy LastName\\"], [\\"text/identifier\\", \\"$jeremy@umav1.jeremykle.in\\"]]","minSendable":1000,"payerData":{"compliance":{"mandatory":true},"email":{"mandatory":false},"identifier":{"mandatory":true},"name":{"mandatory":false}},"tag":"payRequest","umaVersion":"1.0"}'''
+    response_json = """{"allowsNostr":false,"callback":"https://umav1.jeremykle.in/api/uma/payreq/1","compliance":{"isSubjectToTravelRule":true,"kycStatus":"VERIFIED","receiverIdentifier":"$jeremy@umav1.jeremykle.in","signature":"30450221009054c39a4c2ef4905e750ca064cb9d05fe28c377019021b723751bc058bea1de02203f35c24d434a9599efd6d616c06154749ccf3f960da8bcb278404b329fc4aaf7","signatureNonce":"551781159","signatureTimestamp":1710524382},"currencies":[{"code":"SAT","maxSendable":10000000,"minSendable":1,"decimals":0,"multiplier":1000.0,"name":"Satoshi","symbol":""},{"code":"USD","maxSendable":10000000,"minSendable":1,"decimals":2,"multiplier":22883.56,"name":"US Dollar","symbol":"$"}],"maxSendable":10000000000,"metadata":"[[\\"text/plain\\", \\"Pay to umav1.jeremykle.in user Jeremy LastName\\"], [\\"text/identifier\\", \\"$jeremy@umav1.jeremykle.in\\"]]","minSendable":1000,"payerData":{"compliance":{"mandatory":true},"email":{"mandatory":false},"identifier":{"mandatory":true},"name":{"mandatory":false}},"tag":"payRequest","umaVersion":"1.0"}"""
     result_response = parse_lnurlp_response(response_json)
     assert result_response.tag == "payRequest"
     assert result_response.callback == "https://umav1.jeremykle.in/api/uma/payreq/1"
@@ -687,16 +689,19 @@ def test_parse_v0_lnurlp_response() -> None:
     assert result_response.max_sendable == max_sendable_sats * 1000
     assert result_response.min_sendable == min_sendable_sats * 1000
     assert result_response.encoded_metadata == metadata
-    assert result_response.currencies == [Currency(
-        code=c.code,
-        name=c.name,
-        symbol=c.symbol,
-        millisatoshi_per_unit=c.millisatoshi_per_unit,
-        max_sendable=c.max_sendable,
-        min_sendable=c.min_sendable,
-        decimals=c.decimals,
-        uma_major_version=0,
-    ) for c in currencies]
+    assert result_response.currencies == [
+        Currency(
+            code=c.code,
+            name=c.name,
+            symbol=c.symbol,
+            millisatoshi_per_unit=c.millisatoshi_per_unit,
+            max_sendable=c.max_sendable,
+            min_sendable=c.min_sendable,
+            decimals=c.decimals,
+            uma_major_version=0,
+        )
+        for c in currencies
+    ]
     assert none_throws(result_response.currencies)[0].uma_major_version == 0
     assert result_response.uma_version == "0.3"
     assert result_response.required_payer_data == payer_data_options

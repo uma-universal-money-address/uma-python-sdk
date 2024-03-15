@@ -85,7 +85,7 @@ class Currency(JSONable):
             max_sendable=self.max_sendable,
             decimals=self.decimals,
         ).to_dict()
-    
+
     @classmethod
     def _from_dict(cls, json_dict: Dict[str, Any]) -> Dict[str, Any]:
         is_v0 = "minSendable" in json_dict
