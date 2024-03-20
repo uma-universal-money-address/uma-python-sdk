@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.1
+
+- Export the NonceCache types.
+
 ## 0.6.0
 
 - Check and cache nonces when verifying signatures.
