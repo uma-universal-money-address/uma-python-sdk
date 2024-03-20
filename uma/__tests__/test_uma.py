@@ -152,6 +152,15 @@ def test_lnurlp_query_missing_params() -> None:
     assert not is_uma_lnurlp_query(url)
 
 
+def test_lnurlp_query_unsupported_version() -> None:
+    url = "https://vasp2.com/.well-known/lnurlp/bob?signature=signature&nonce=12345&vaspDomain=vasp1.com&isSubjectToTravelRule=true&timestamp=12345678&umaVersion=10.0"
+    assert is_uma_lnurlp_query(url)
+
+    # Imagine if we removed the travel rule field and nonce field in a future version:
+    url = "https://vasp2.com/.well-known/lnurlp/bob?signature=signature&vaspDomain=vasp1.com&umaVersion=10.0&timestamp=12345678"
+    assert is_uma_lnurlp_query(url)
+
+
 def test_lnurlp_query_invalid_path() -> None:
     url = "https://vasp2.com/.well-known/lnurla/bob?signature=signature&nonce=12345&vaspDomain=vasp1.com&umaVersion=0.1&isSubjectToTravelRule=true&timestamp=12345678"
     assert not is_uma_lnurlp_query(url)
