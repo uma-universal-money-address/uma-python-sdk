@@ -3,6 +3,7 @@
 from uma.currency import Currency
 from uma.exceptions import *
 from uma.kyc_status import KycStatus
+from uma.nonce_cache import InMemoryNonceCache, INonceCache
 from uma.payer_data import CompliancePayerData, PayerData, PayerDataOptions
 from uma.protocol import (
     LnurlComplianceResponse,
