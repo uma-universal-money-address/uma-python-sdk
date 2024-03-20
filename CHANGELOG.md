@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.0
+
+- Check and cache nonces when verifying signatures.
+- Fix forward compatibility with the `isUmaLnurlpQuery` function.
+- Fix setup.cfg paths for README and LICENSE.
+- Improve some code documentation.
+
 ## 0.5.2
 
 - Use HTTP for more localhost formats to help with local tests.
