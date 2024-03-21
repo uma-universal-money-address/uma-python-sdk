@@ -50,22 +50,28 @@ class PubkeyResponse(JSONable):
         if self.encryption_pubkey:
             return self.encryption_pubkey
         raise InvalidRequestException("Encryption pubkey is required for uma.")
+    
+    def get_signing_cert_chain_hex(self) -> List[str]:
+        return [
+            cert.public_bytes(encoding=serialization.Encoding.PEM).hex()
+            for cert in self.signing_cert_chain
+        ] if self.signing_cert_chain else []
+    
+    def get_encryption_cert_chain_hex(self) -> List[str]:
+        return [
+            cert.public_bytes(encoding=serialization.Encoding.PEM).hex()
+            for cert in self.encryption_cert_chain
+        ] if self.encryption_cert_chain else []
 
     def to_dict(self) -> Dict[str, Any]:
         json_dict: Dict[str, Any] = {}
         signing_cert_chain = self.signing_cert_chain
         encryption_cert_chain = self.encryption_cert_chain
         if signing_cert_chain:
-            json_dict["signingCertChain"] = [
-                cert.public_bytes(encoding=serialization.Encoding.PEM).hex()
-                for cert in signing_cert_chain
-            ]
+            json_dict["signingCertChain"] = self.get_signing_cert_chain_hex()
             json_dict["signingPubKey"] = get_pubkey(signing_cert_chain[0]).hex()
         if encryption_cert_chain:
-            json_dict["encryptionCertChain"] = [
-                cert.public_bytes(encoding=serialization.Encoding.PEM).hex()
-                for cert in encryption_cert_chain
-            ]
+            json_dict["encryptionCertChain"] = self.get_encryption_cert_chain_hex()
             json_dict["encryptionPubKey"] = get_pubkey(encryption_cert_chain[0]).hex()
         if self.signing_pubkey:
             json_dict["signingPubKey"] = self.signing_pubkey.hex()
