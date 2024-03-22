@@ -515,7 +515,8 @@ def create_pay_req_response(
                 multiplier=none_throws(msats_per_currency_unit),
                 exchange_fees_msats=none_throws(receiver_fees_msats),
             )
-            if receiving_currency_code is not None and msats_per_currency_unit is not None
+            if receiving_currency_code is not None
+            and msats_per_currency_unit is not None
             else None
         ),
         disposable=disposable,
