@@ -57,13 +57,13 @@ class PubkeyResponse(JSONable):
         encryption_cert_chain = self.encryption_cert_chain
         if signing_cert_chain:
             json_dict["signingCertChain"] = [
-                cert.public_bytes(encoding=serialization.Encoding.PEM).hex()
+                cert.public_bytes(encoding=serialization.Encoding.DER).hex()
                 for cert in signing_cert_chain
             ]
             json_dict["signingPubKey"] = get_pubkey(signing_cert_chain[0]).hex()
         if encryption_cert_chain:
             json_dict["encryptionCertChain"] = [
-                cert.public_bytes(encoding=serialization.Encoding.PEM).hex()
+                cert.public_bytes(encoding=serialization.Encoding.DER).hex()
                 for cert in encryption_cert_chain
             ]
             json_dict["encryptionPubKey"] = get_pubkey(encryption_cert_chain[0]).hex()
@@ -82,7 +82,7 @@ class PubkeyResponse(JSONable):
         return {
             "signing_cert_chain": (
                 [
-                    x509.load_pem_x509_certificate(bytes.fromhex(cert))
+                    x509.load_der_x509_certificate(bytes.fromhex(cert))
                     for cert in json_dict["signingCertChain"]
                 ]
                 if "signingCertChain" in json_dict
@@ -90,7 +90,7 @@ class PubkeyResponse(JSONable):
             ),
             "encryption_cert_chain": (
                 [
-                    x509.load_pem_x509_certificate(bytes.fromhex(cert))
+                    x509.load_der_x509_certificate(bytes.fromhex(cert))
                     for cert in json_dict["encryptionCertChain"]
                 ]
                 if "encryptionCertChain" in json_dict

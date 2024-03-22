@@ -212,7 +212,7 @@ class PayReqResponse(JSONable):
         if is_uma_v0 and not is_uma_v1:
             if "payee_data" not in data:
                 data["payee_data"] = {}
-            data["payee_data"] = {"compliance": json_dict.pop("compliance")}
+            data["payee_data"]["compliance"] = json_dict.pop("compliance")
 
         if "paymentInfo" in json_dict and "converted" not in json_dict:
             # pylint: disable=protected-access
