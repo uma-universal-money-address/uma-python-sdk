@@ -330,6 +330,12 @@ def parse_lnurlp_request(url: str) -> LnurlpRequest:
     timestamp = query.get("timestamp", [""])[0] if query.get("timestamp") else None
     uma_version = query.get("umaVersion", [""])[0] if query.get("umaVersion") else None
 
+    if uma_version and not is_version_supported(uma_version):
+        raise UnsupportedVersionException(
+            unsupported_version=uma_version,
+            supported_major_versions=get_supported_major_versions(),
+        )
+
     required_uma_fields = {
         "signature": signature,
         "vasp_domain": vasp_domain,
@@ -343,12 +349,6 @@ def parse_lnurlp_request(url: str) -> LnurlpRequest:
     if has_an_uma_field and not has_all_uma_fields:
         raise InvalidRequestException(
             "Missing uma query parameters: vaspDomain, signature, nonce, uma_version, and timestamp are required."
-        )
-
-    if uma_version and not is_version_supported(uma_version):
-        raise UnsupportedVersionException(
-            unsupported_version=uma_version,
-            supported_major_versions=get_supported_major_versions(),
         )
 
     paths = parsed_url.path.split("/")
@@ -377,6 +377,10 @@ def is_uma_lnurlp_query(url: str) -> bool:
     try:
         request = parse_lnurlp_request(url)
         return request.is_uma_request()
+    except UnsupportedVersionException:
+        # Unsupported versions are still UMA requests. The version negotiation
+        # should be handled by the VASP when parsing the request.
+        return True
     except Exception:  # pylint: disable=broad-except
         return False
 
