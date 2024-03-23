@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.0.0
+
+- Upgrading to UMA protocol v1.0!
+  - Using X.509 Certificates for PKI
+  - Adding a signature to the payreq response
+  - Add a signature to post-tx hook callback requests
+  - Using the new Currency LUD-21 spec to allow locking the sending currency amount.
+  - Adding optional Payee Data (LUD-22)
+- SDK Improvements
+  - Version fallback support. Fully compatible with UMA v0.3 counterparties.
+  - Better raw LNURL interoperability.
+
 ## 0.6.1
 
 - Export the NonceCache types.
