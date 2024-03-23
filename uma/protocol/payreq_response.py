@@ -210,7 +210,7 @@ class PayReqResponse(JSONable):
         is_uma_v0 = "compliance" in json_dict
         is_uma_v1 = "payeeData" in json_dict and "compliance" in json_dict["payeeData"]
         if is_uma_v0 and not is_uma_v1:
-            if "payee_data" not in data:
+            if "payee_data" not in data or not data["payee_data"]:
                 data["payee_data"] = {}
             data["payee_data"]["compliance"] = json_dict.pop("compliance")
 
