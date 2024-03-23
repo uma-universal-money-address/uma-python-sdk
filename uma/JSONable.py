@@ -21,9 +21,15 @@ class JSONable(ABC):
                     item.to_dict() if isinstance(item, JSONable) else item
                     for item in value
                 ]
+            elif isinstance(value, dict):
+                value = {
+                    k: v.to_dict() if isinstance(v, JSONable) else v
+                    for k, v in value.items()
+                }
             elif isinstance(value, Enum):
                 value = value.name
-            json_dict[self._get_field_name(key)] = value
+            if value is not None:
+                json_dict[self._get_field_name(key)] = value
         return json_dict
 
     def to_json(self) -> str:
@@ -76,6 +82,14 @@ class JSONable(ABC):
                 ]
             elif hasattr(field_type, "_from_dict"):
                 data[field.name] = field_type(**field_type._from_dict(value))
+            elif isinstance(value, dict) and hasattr(
+                field_type.__args__[1], "_from_dict"
+            ):
+                # handle dict
+                field_type = field_type.__args__[1]
+                data[field.name] = {
+                    k: field_type(**field_type._from_dict(v)) for k, v in value.items()
+                }
             elif isinstance(field_type, type) and issubclass(field_type, Enum):
                 data[field.name] = field_type[value]
             else:

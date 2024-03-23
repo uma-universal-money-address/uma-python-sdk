@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 from typing import Dict, Optional
 
-from uma.protocol import PubkeyResponse
+from uma.protocol.pubkey_response import PubkeyResponse
 
 
 class IPublicKeyCache(ABC):
