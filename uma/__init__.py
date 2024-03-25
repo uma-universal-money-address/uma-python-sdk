@@ -32,6 +32,7 @@ from uma.uma import (
     create_compliance_payer_data,
     create_pay_req_response,
     create_pay_request,
+    create_post_transaction_callback,
     create_pubkey_response,
     create_uma_lnurlp_request_url,
     create_uma_lnurlp_response,

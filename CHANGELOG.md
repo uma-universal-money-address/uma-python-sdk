@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.1
+
+- Export the `create_post_transaction_callback` function.
+
 ## 1.0.0
 
 - Upgrading to UMA protocol v1.0!
