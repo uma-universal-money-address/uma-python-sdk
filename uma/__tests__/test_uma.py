@@ -856,6 +856,8 @@ def test_payreq_serialization_in_msats() -> None:
         payer_email=None,
         payer_compliance=None,
     )
+    assert pay_request.amount == amount_msats
+    assert pay_request.sending_amount_currency_code is None
     payreq_json = json.loads(pay_request.to_json())
     assert payreq_json["amount"] == amount_msats
     assert payreq_json["convert"] == "USD"

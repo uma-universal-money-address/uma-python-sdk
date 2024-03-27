@@ -78,7 +78,7 @@ class PayRequest(JSONable):
             result_dict["convert"] = receiving_currency
         result_dict["amount"] = (
             f"{result_dict['amount']}.{sending_currency}"
-            if sending_currency and sending_currency.upper() != "SAT"
+            if sending_currency is not None
             else result_dict["amount"]
         )
         return result_dict
