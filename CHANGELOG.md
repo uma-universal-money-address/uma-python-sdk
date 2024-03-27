@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.2
+
+- Avoid defaulting to SAT for empty sending currency to fix msats conversion.
+
 ## 1.0.1
 
 - Export the `create_post_transaction_callback` function.
