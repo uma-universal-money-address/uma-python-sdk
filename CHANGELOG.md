@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.3
+
+- Always use a string for the amount in v1 to match the v1 spec.
+
 ## 1.0.2
 
 - Avoid defaulting to SAT for empty sending currency to fix msats conversion.
