@@ -131,7 +131,7 @@ class PayRequest(JSONable):
                 payer_data=v1_payreq.payer_data,
                 requested_payee_data=v1_payreq.requested_payee_data,
                 comment=v1_payreq.comment,
-                uma_major_version=1,
+                uma_major_version=1 if is_v1 else None,
             )
         v0_payreq = V0PayRequest.from_json(json_encoded)
         return PayRequest(

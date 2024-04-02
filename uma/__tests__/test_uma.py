@@ -243,7 +243,7 @@ def test_parse_v0_pay_request() -> None:
 
 
 def test_parse_lnurl_pay_request() -> None:
-    simple_payreq = {"amount": 100}
+    simple_payreq = {"amount": "100"}
     parsed_payreq = parse_pay_request(json.dumps(simple_payreq))
     assert parsed_payreq.uma_major_version is None
     assert parsed_payreq.amount == 100
@@ -859,7 +859,7 @@ def test_payreq_serialization_in_msats() -> None:
     assert pay_request.amount == amount_msats
     assert pay_request.sending_amount_currency_code is None
     payreq_json = json.loads(pay_request.to_json())
-    assert payreq_json["amount"] == amount_msats
+    assert payreq_json["amount"] == str(amount_msats)
     assert payreq_json["convert"] == "USD"
 
 

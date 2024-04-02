@@ -79,7 +79,7 @@ class PayRequest(JSONable):
         result_dict["amount"] = (
             f"{result_dict['amount']}.{sending_currency}"
             if sending_currency is not None
-            else result_dict["amount"]
+            else f"{result_dict['amount']}"
         )
         return result_dict
 
