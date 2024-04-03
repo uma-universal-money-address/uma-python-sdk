@@ -563,7 +563,11 @@ def test_lnurlp_response_create_and_parse() -> None:
     callback = "https://vasp2.com/api/lnurl/payreq/$bob"
     min_sendable_sats = 1
     max_sendable_sats = 10_000_000
+    # compliance and identifier should be added automatically.
     payer_data_options = create_counterparty_data_options(
+        {"name": False, "email": False}
+    )
+    expected_payer_data_options = create_counterparty_data_options(
         {"name": False, "email": False, "compliance": True, "identifier": True}
     )
     currencies = [
@@ -601,7 +605,7 @@ def test_lnurlp_response_create_and_parse() -> None:
     assert result_response.encoded_metadata == metadata
     assert result_response.currencies == currencies
     assert result_response.currencies == currencies
-    assert result_response.required_payer_data == payer_data_options
+    assert result_response.required_payer_data == expected_payer_data_options
     compliance = result_response.compliance
     assert compliance is not None
     assert compliance.kyc_status == receiver_kyc_status
