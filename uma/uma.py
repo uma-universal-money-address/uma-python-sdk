@@ -21,7 +21,10 @@ from uma.exceptions import (
     UnsupportedVersionException,
 )
 from uma.nonce_cache import INonceCache
-from uma.protocol.counterparty_data import CounterpartyDataOption, CounterpartyDataOptions
+from uma.protocol.counterparty_data import (
+    CounterpartyDataOption,
+    CounterpartyDataOptions,
+)
 from uma.protocol.currency import Currency
 from uma.protocol.kyc_status import KycStatus
 from uma.protocol.lnurlp_request import LnurlpRequest
