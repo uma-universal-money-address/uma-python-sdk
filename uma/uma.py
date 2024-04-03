@@ -21,7 +21,10 @@ from uma.exceptions import (
     UnsupportedVersionException,
 )
 from uma.nonce_cache import INonceCache
-from uma.protocol.counterparty_data import CounterpartyDataOptions
+from uma.protocol.counterparty_data import (
+    CounterpartyDataOption,
+    CounterpartyDataOptions,
+)
 from uma.protocol.currency import Currency
 from uma.protocol.kyc_status import KycStatus
 from uma.protocol.lnurlp_request import LnurlpRequest
@@ -623,6 +626,13 @@ def create_uma_lnurlp_response(
     if ParsedVersion.load(uma_version).major == 0:
         for currency in currency_options:
             currency.uma_major_version = 0
+
+    # compliance and identifier are mandatory fields for UMA
+    if "compliance" not in payer_data_options:
+        payer_data_options["compliance"] = CounterpartyDataOption(mandatory=True)
+    if "identifier" not in payer_data_options:
+        payer_data_options["identifier"] = CounterpartyDataOption(mandatory=True)
+
     return LnurlpResponse(
         tag="payRequest",
         callback=callback,
