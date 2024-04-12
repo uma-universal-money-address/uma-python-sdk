@@ -270,6 +270,11 @@ def create_pay_request(
             if the receiver included the `commentAllowed` field in the lnurlp response. The length of
             the comment must be less than or equal to the value of `commentAllowed`.
     """
+    if uma_major_version == 0 and not is_amount_in_receiving_currency:
+        raise InvalidRequestException(
+            "UMA v0 does not support sending amounts in msats. Please set is_amount_in_receiving_currency to True."
+        )
+
     sending_currency_code = (
         receiving_currency_code if is_amount_in_receiving_currency else None
     )
