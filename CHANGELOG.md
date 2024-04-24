@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.4
+
+- Ensure that compliance and identifier are required in payerdata
+- Don't allow sending in msats for UMA v0
+
 ## 1.0.3
 
 - Always use a string for the amount in v1 to match the v1 spec.
