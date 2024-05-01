@@ -118,8 +118,8 @@ class PayRequest(JSONable):
         is_amount_string = "amount" in json_dict and isinstance(
             json_dict["amount"], str
         )
-        is_uma = "payerData" in json_dict and "compliance" in json_dict["payerData"]
-        is_v1 = ("convert" in json_dict) and is_uma
+        is_uma = json_dict.get("payerData") and "compliance" in json_dict["payerData"]
+        is_v1 = "convert" in json_dict and is_uma
         is_v0 = "currency" in json_dict and is_uma
 
         if is_v1 or is_amount_string:
