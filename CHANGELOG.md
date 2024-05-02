@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.5
+
+- Add conversion utils for request params to/from PayRequest
+- Fix PayRequest parsing bug
+
 ## 1.0.4
 
 - Ensure that compliance and identifier are required in payerdata
