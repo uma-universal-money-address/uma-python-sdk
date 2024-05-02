@@ -161,7 +161,9 @@ class PayRequest(JSONable):
         return params
 
     @classmethod
-    def from_request_params(cls: "type[PayRequest]", params: Dict[str, str]) -> "PayRequest":
+    def from_request_params(
+        cls: "type[PayRequest]", params: Dict[str, str]
+    ) -> "PayRequest":
         if not params.get("amount"):
             raise InvalidRequestException("amount is required.")
         parts = params["amount"].split(".")
