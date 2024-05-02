@@ -142,3 +142,40 @@ class PayRequest(JSONable):
             requested_payee_data=None,
             uma_major_version=0 if is_v0 else None,
         )
+
+    def to_request_params(self) -> Dict[str, str]:
+        params = {}
+        if self.sending_amount_currency_code:
+            amount = f"{self.amount}.{self.sending_amount_currency_code}"
+        else:
+            amount = str(self.amount)
+        params["amount"] = amount
+        if self.receiving_currency_code:
+            params["convert"] = self.receiving_currency_code
+        if self.payer_data is not None:
+            params["payerData"] = json.dumps(self.payer_data)
+        if self.requested_payee_data is not None:
+            params["payeeData"] = json.dumps(self.requested_payee_data)
+        if self.comment:
+            params["comment"] = self.comment
+        return params
+
+    @classmethod
+    def from_request_params(cls: "type[PayRequest]", params: Dict[str, str]) -> "PayRequest":
+        if not params.get("amount"):
+            raise InvalidRequestException("amount is required.")
+        parts = params["amount"].split(".")
+        sending_amount_currency_code = parts[1] if len(parts) == 2 else None
+        amount = parts[0]
+        payer_data_json = params.get("payerData")
+        payer_data = None if payer_data_json is None else json.loads(payer_data_json)
+        payee_data_json = params.get("payeeData")
+        payee_data = None if payee_data_json is None else json.loads(payee_data_json)
+        return PayRequest(
+            sending_amount_currency_code=sending_amount_currency_code,
+            receiving_currency_code=params.get("convert"),
+            amount=int(amount),
+            payer_data=payer_data,
+            comment=params.get("comment"),
+            requested_payee_data=payee_data,
+        )
