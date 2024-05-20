@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.6
+
+- Raise InvalidRequestException for invalid request timestamps
+
 ## 1.0.5
 
 - Add conversion utils for request params to/from PayRequest
