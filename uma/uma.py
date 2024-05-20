@@ -138,7 +138,7 @@ def verify_pay_request_signature(
 
     nonce_cache.check_and_save_nonce(
         compliance_data.signature_nonce,
-        datetime.fromtimestamp(compliance_data.signature_timestamp, timezone.utc),
+        _parse_timestamp(compliance_data.signature_timestamp),
     )
     _verify_signature(
         request.signable_payload(),
@@ -374,9 +374,7 @@ def parse_lnurlp_request(url: str) -> LnurlpRequest:
         signature=signature,
         is_subject_to_travel_rule=is_subject_to_travel_rule,
         vasp_domain=vasp_domain,
-        timestamp=(
-            datetime.fromtimestamp(int(timestamp), timezone.utc) if timestamp else None
-        ),
+        timestamp=(_parse_timestamp(int(timestamp)) if timestamp else None),
         uma_version=uma_version,
     )
 
@@ -587,9 +585,7 @@ def verify_pay_req_response_signature(
 
     nonce_cache.check_and_save_nonce(
         none_throws(compliance_data.signature_nonce),
-        datetime.fromtimestamp(
-            none_throws(compliance_data.signature_timestamp), timezone.utc
-        ),
+        _parse_timestamp(none_throws(compliance_data.signature_timestamp)),
     )
     _verify_signature(
         compliance_data.signable_payload(sender_address, receiver_address),
@@ -615,7 +611,7 @@ def create_uma_lnurlp_response(
     if not request.is_uma_request():
         raise InvalidRequestException(
             "The request is not a UMA request. Cannot create an UMA response. "
-            + "Just create an LnurlpReasponse directly instead."
+            + "Just create an LnurlpResponse directly instead."
         )
     uma_version = select_lower_version(
         none_throws(request.uma_version), UMA_PROTOCOL_VERSION
@@ -688,7 +684,7 @@ def verify_uma_lnurlp_response_signature(
 
     nonce_cache.check_and_save_nonce(
         response.compliance.signature_nonce,
-        datetime.fromtimestamp(response.compliance.signature_timestamp, timezone.utc),
+        _parse_timestamp(response.compliance.signature_timestamp),
     )
     _verify_signature(
         response.signable_payload(),
@@ -779,10 +775,19 @@ def verify_post_transaction_callback_signature(
         )
     nonce_cache.check_and_save_nonce(
         callback.signature_nonce,
-        datetime.fromtimestamp(callback.signature_timestamp, timezone.utc),
+        _parse_timestamp(callback.signature_timestamp),
     )
     _verify_signature(
         callback.signable_payload(),
         none_throws(callback.signature),
         other_vasp_pubkeys.get_signing_pubkey(),
     )
+
+
+def _parse_timestamp(
+    timestamp: float,
+) -> datetime:
+    try:
+        return datetime.fromtimestamp(timestamp, timezone.utc)
+    except ValueError as ex:
+        raise InvalidRequestException("Invalid timestamp in request.") from ex
