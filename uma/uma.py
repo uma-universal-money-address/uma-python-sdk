@@ -498,6 +498,7 @@ def create_pay_req_response(
     encoded_invoice = invoice_creator.create_uma_invoice(
         amount_msats=round(amount_msats),
         metadata=metadata,
+        receiver_identifier=payee_identifier,
     )
     payer_identifier = request.payer_data["identifier"] if request.payer_data else None
     if not payer_identifier and request.is_uma_request():

@@ -4,7 +4,7 @@ import json
 from math import floor
 import secrets
 from datetime import datetime, timedelta, timezone
-from typing import Tuple
+from typing import Optional
 from unittest.mock import patch
 
 import pytest
@@ -291,6 +291,7 @@ class DummyUmaInvoiceCreator(IUmaInvoiceCreator):
         self,
         amount_msats: int,
         metadata: str,
+        receiver_identifier: Optional[str],
     ) -> str:
         self.last_requested_invoice_amount = amount_msats
         return self.DUMMY_INVOICE

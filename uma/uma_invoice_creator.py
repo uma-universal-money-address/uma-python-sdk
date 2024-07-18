@@ -1,6 +1,7 @@
 # Copyright ©, 2022-present, Lightspark Group, Inc. - All Rights Reserved
 
 from abc import ABC, abstractmethod
+from typing import Optional
 
 
 class IUmaInvoiceCreator(ABC):
@@ -9,5 +10,6 @@ class IUmaInvoiceCreator(ABC):
         self,
         amount_msats: int,
         metadata: str,
+        receiver_identifier: Optional[str],
     ) -> str:
         pass
