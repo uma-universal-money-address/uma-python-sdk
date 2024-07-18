@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.0
+
+- Add `receiver_identifier` param to `create_uma_invoice` interface
+
 ## 1.0.6
 
 - Raise InvalidRequestException for invalid request timestamps
