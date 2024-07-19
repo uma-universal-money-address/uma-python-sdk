@@ -12,7 +12,7 @@ from uma.version import (
 )
 
 
-def select_lower_version() -> None:
+def test_select_lower_version() -> None:
     assert select_lower_version("1.1", "1.1") == "1.1"
     assert select_lower_version("1.2", "1.1") == "1.1"
     assert select_lower_version("1.1", "1.2") == "1.1"

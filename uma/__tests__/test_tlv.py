@@ -1,4 +1,3 @@
-from typing import runtime_checkable
 from uma.tlv_utils import ByteCodable, TLVCodable
 
 
@@ -70,7 +69,7 @@ def test_nested_tlv_coding() -> None:
     assert new_obj.test_field.bytes_field == b"world"
 
 
-class BinaryClass:
+class BinaryClass(ByteCodable):
     def __init__(self, data: bytes) -> None:
         self.data = data
 
