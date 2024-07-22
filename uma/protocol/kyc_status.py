@@ -8,3 +8,10 @@ class KycStatus(Enum):
     NOT_VERIFIED = "NOT_VERIFIED"
     PENDING = "PENDING"
     UNKNOWN = "UNKNOWN"
+
+    def to_bytes(self) -> bytes:
+        return self.value.encode()
+
+    @classmethod
+    def from_bytes(cls, data: bytes) -> "KycStatus":
+        return cls(data.decode())
