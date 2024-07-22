@@ -71,6 +71,11 @@ class PayRequest(JSONable):
     The major version of the UMA protocol that this currency adheres to. This is not serialized to JSON.
     """
 
+    invoice_uuid: Optional[str] = None
+    """
+    The uma invoice UUID that the sender is paying.
+    """
+
     def signable_payload(self) -> bytes:
         if not self.payer_data:
             raise InvalidRequestException("payer_data is required.")
