@@ -251,6 +251,7 @@ def create_pay_request(
     payer_compliance: Optional[CompliancePayerData],
     requested_payee_data: Optional[CounterpartyDataOptions] = None,
     comment: Optional[str] = None,
+    invoice_uuid: Optional[str] = None,
 ) -> PayRequest:
     """
     Creates a payreq request object.
@@ -275,6 +276,7 @@ def create_pay_request(
         comment: A comment that the sender wants to add to the payment. This can only be included
             if the receiver included the `commentAllowed` field in the lnurlp response. The length of
             the comment must be less than or equal to the value of `commentAllowed`.
+        invoice_uuid: if the PayRequest is for an UMA invoice, this should be the UUID of the invoice.
     """
     if uma_major_version == 0 and not is_amount_in_receiving_currency:
         raise InvalidRequestException(
@@ -297,6 +299,7 @@ def create_pay_request(
         requested_payee_data=requested_payee_data,
         comment=comment,
         uma_major_version=uma_major_version,
+        invoice_uuid=invoice_uuid,
     )
 
 
@@ -420,6 +423,15 @@ def verify_uma_lnurlp_query_signature(
     )
 
 
+def _add_invoice_uuid_to_metadata(metadata: str, invoice_uuid: str) -> str:
+    try:
+        data = json.loads(metadata)
+        data.append(["text/plain", invoice_uuid])
+        return json.dumps(data)
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Invalid JSON: {e}") from e
+
+
 def create_pay_req_response(
     request: PayRequest,
     invoice_creator: IUmaInvoiceCreator,
@@ -501,6 +513,10 @@ def create_pay_req_response(
     )
     if request.payer_data:
         metadata += json.dumps(request.payer_data)
+
+    if request.invoice_uuid:
+        metadata = _add_invoice_uuid_to_metadata(metadata, request.invoice_uuid)
+
     encoded_invoice = invoice_creator.create_uma_invoice(
         amount_msats=round(amount_msats),
         metadata=metadata,
