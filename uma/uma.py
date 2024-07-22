@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from math import floor
 from typing import Dict, List, Optional
 from urllib.parse import parse_qs, urlparse
+from uuid import uuid4
 
 import requests
 from coincurve.ecdsa import cdata_to_der, der_to_cdata, signature_normalize
@@ -43,6 +44,11 @@ from uma.protocol.payreq_response import (
 )
 from uma.protocol.post_tx_callback import PostTransactionCallback, UtxoWithAmount
 from uma.protocol.pubkey_response import PubkeyResponse
+from uma.protocol.invoice import (
+    Invoice,
+    InvoiceCounterpartyDataOptions,
+    InvoiceCurrency,
+)
 from uma.public_key_cache import IPublicKeyCache
 from uma.type_utils import none_throws
 from uma.uma_invoice_creator import IUmaInvoiceCreator
@@ -792,3 +798,75 @@ def _parse_timestamp(
         return datetime.fromtimestamp(timestamp, timezone.utc)
     except ValueError as ex:
         raise InvalidRequestException("Invalid timestamp in request.") from ex
+
+
+def create_uma_invoice(
+    receiver_uma: str,
+    receiving_currency_amount: int,
+    receiving_currency: InvoiceCurrency,
+    expiration: datetime,
+    callback: str,
+    is_subject_to_travel_rule: bool,
+    signing_private_key: bytes,
+    required_payer_data: Optional[CounterpartyDataOptions] = None,
+    comment_chars_allowed: Optional[int] = None,
+    receiver_kyc_status: Optional[KycStatus] = None,
+    invoice_limit: Optional[int] = None,
+    sender_uma: Optional[str] = None,
+) -> Invoice:
+    """
+    Creates a UMA invoice.
+
+    Args:
+        receiver_uma: the UMA address of the receiver.
+        receiving_currency_amount: the amount that the receiver will receive in either the smallest unit of the receiving currency.
+        receiving_currency: the currency that the receiver will receive for this payment.
+        expiration: the expiration time of the invoice in seconds.
+        callback: the URL that the receiver will call to send UTXOs of the channel that the receiver used to receive the payment once it completes.
+        is_subject_to_travel_rule: whether the receiver is a financial institution that requires travel rule information.
+        signing_private_key: the private key of the VASP that is creating the invoice. This will be used to sign the request.
+        required_payer_data: RequiredPayerData the data about the payer that the sending VASP must provide in order to send a payment.
+        comment_chars_allowed: the number of characters that the receiver allows in the comment field.
+        receiver_kyc_status: the KYC status of the receiver.
+        invoice_limit: the maximum times of the invoice can be paid.
+        sender_uma: the UMA address of the sender.
+    """
+    uuid = str(uuid4())
+    invoice_required_payer_data = (
+        InvoiceCounterpartyDataOptions(options=required_payer_data)
+        if required_payer_data
+        else None
+    )
+    invoice = Invoice(
+        receiver_uma=receiver_uma,
+        invoice_uuid=uuid,
+        amount=receiving_currency_amount,
+        receving_currency=receiving_currency,
+        expiration=int(expiration.timestamp()),
+        is_subject_to_travel_rule=is_subject_to_travel_rule,
+        required_payer_data=invoice_required_payer_data,
+        uma_version=UMA_PROTOCOL_VERSION,
+        comment_chars_allowed=comment_chars_allowed,
+        sender_uma=sender_uma,
+        invoice_limit=invoice_limit,
+        kyc_status=receiver_kyc_status,
+        callback=callback,
+    )
+
+    payload = invoice.to_tlv()
+    signature = _sign_payload(payload, signing_private_key)
+    invoice.signature = bytes.fromhex(signature)
+    return invoice
+
+
+def verify_uma_invoice_signature(
+    invoice: Invoice,
+    other_vasp_pubkeys: PubkeyResponse,
+) -> None:
+    unsigned_invoice = invoice
+    unsigned_invoice.signature = None
+    _verify_signature(
+        unsigned_invoice.to_tlv(),
+        none_throws(invoice.signature).hex(),
+        other_vasp_pubkeys.get_signing_pubkey(),
+    )
