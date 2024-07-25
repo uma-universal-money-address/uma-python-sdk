@@ -11,6 +11,11 @@ from uma.protocol.currency import Currency
 from uma.protocol.kyc_status import KycStatus
 from uma.protocol.lnurlp_request import LnurlpRequest
 from uma.protocol.lnurlp_response import LnurlComplianceResponse, LnurlpResponse
+from uma.protocol.invoice import (
+    Invoice,
+    InvoiceCounterpartyDataOptions,
+    InvoiceCurrency,
+)
 from uma.protocol.payee_data import PayeeData
 from uma.protocol.payer_data import (
     CompliancePayerData,
@@ -34,6 +39,7 @@ from uma.uma import (
     create_pay_request,
     create_post_transaction_callback,
     create_pubkey_response,
+    create_uma_invoice,
     create_uma_lnurlp_request_url,
     create_uma_lnurlp_response,
     fetch_public_key_for_vasp,
@@ -47,6 +53,7 @@ from uma.uma import (
     verify_pay_req_response_signature,
     verify_pay_request_signature,
     verify_post_transaction_callback_signature,
+    verify_uma_invoice_signature,
     verify_uma_lnurlp_query_signature,
     verify_uma_lnurlp_response_signature,
 )
