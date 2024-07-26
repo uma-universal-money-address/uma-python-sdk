@@ -44,7 +44,6 @@ class TLVCodable(ABC):
         obj = cls()
         index = 0
         tag_to_data: Dict[int, bytes] = {}
-        print(len(data))
         while index + 2 < len(data):
             tag, length = struct.unpack("!BB", data[index : index + 2])
             index += 2
@@ -54,7 +53,6 @@ class TLVCodable(ABC):
 
         tlv_map = cls.tlv_map()
         for attr_name, tag in tlv_map.items():
-            print(attr_name, tag)
             value_bytes = tag_to_data.get(tag, None)
             if value_bytes is None:
                 continue
