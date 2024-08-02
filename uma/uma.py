@@ -879,10 +879,10 @@ def verify_uma_invoice_signature(
     invoice: Invoice,
     other_vasp_pubkeys: PubkeyResponse,
 ) -> None:
-    unsigned_invoice = invoice
-    unsigned_invoice.signature = None
+    signature = invoice.signature
+    invoice.signature = None
     _verify_signature(
-        unsigned_invoice.to_tlv(),
-        none_throws(invoice.signature).hex(),
+        invoice.to_tlv(),
+        none_throws(signature).hex(),
         other_vasp_pubkeys.get_signing_pubkey(),
     )
