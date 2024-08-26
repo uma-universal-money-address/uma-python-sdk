@@ -593,7 +593,8 @@ def verify_pay_req_response_signature(
     other_vasp_pubkeys: PubkeyResponse,
     nonce_cache: INonceCache,
 ) -> None:
-    if not response.payee_data:
+    payee_data = response.payee_data
+    if not payee_data:
         raise InvalidRequestException(
             "Missing payee data in response. Cannot verify signature."
         )
@@ -606,7 +607,7 @@ def verify_pay_req_response_signature(
             "Signatures were added to payreq responses in UMA v1. This response is from an UMA v0 receiving VASP."
         )
     
-    payee_data_identifier = response.payee_data.get("identifier")
+    payee_data_identifier = payee_data.get("identifier")
     if payee_data_identifier is not None and payee_data_identifier.lower() != receiver_address.lower():
         raise InvalidRequestException(
             f"Payee data identifier {payee_data_identifier} does not match receiver address {receiver_address}."
