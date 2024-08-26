@@ -368,7 +368,7 @@ def test_pay_req_response_create_and_parse() -> None:
     assert payment_info.exchange_fees_msats == receiver_fees_msats
     verify_pay_req_response_signature(
         sender_address="$alice@vasp1.com",
-        receiver_address="$bob@vasp2.com",
+        receiver_address="$Bob@vasp2.com",
         response=response,
         other_vasp_pubkeys=receiver_pubkey_response,
         nonce_cache=nonce_cache,
