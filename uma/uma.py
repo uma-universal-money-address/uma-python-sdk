@@ -605,13 +605,21 @@ def verify_pay_req_response_signature(
         raise InvalidRequestException(
             "Signatures were added to payreq responses in UMA v1. This response is from an UMA v0 receiving VASP."
         )
+    
+    payee_data_identifier = response.payee_data.get("identifier")
+    if payee_data_identifier is not None and payee_data_identifier.lower() != receiver_address.lower():
+        raise InvalidRequestException(
+            f"Payee data identifier {payee_data_identifier} does not match receiver address {receiver_address}."
+        )
+    if payee_data_identifier is None:
+        payee_data_identifier = receiver_address
 
     nonce_cache.check_and_save_nonce(
         none_throws(compliance_data.signature_nonce),
         _parse_timestamp(none_throws(compliance_data.signature_timestamp)),
     )
     _verify_signature(
-        compliance_data.signable_payload(sender_address, receiver_address),
+        compliance_data.signable_payload(sender_address, payee_data_identifier),
         none_throws(compliance_data.signature),
         other_vasp_pubkeys.get_signing_pubkey(),
     )
