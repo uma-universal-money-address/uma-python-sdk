@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.2.1
+- Bug fix: Verify UMA invoice signature won't mutate the invoice object.
+
 ## 1.2.0
 
 - More functionality added for UMA Invoices 🚀
