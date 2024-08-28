@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.0
+
+- More functionality added for UMA Invoices 🚀
+- Bug fix: Use the payeedata identifier for signature verification.
+
 ## 1.1.0
 
 - Add `receiver_identifier` param to `create_uma_invoice` interface
