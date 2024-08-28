@@ -1,6 +1,7 @@
 # Copyright ©, 2022-present, Lightspark Group, Inc. - All Rights Reserved
 import json
 import random
+from dataclasses import replace
 from datetime import datetime, timezone
 from math import floor
 from typing import Dict, List, Optional
@@ -891,10 +892,12 @@ def verify_uma_invoice_signature(
     invoice: Invoice,
     other_vasp_pubkeys: PubkeyResponse,
 ) -> None:
+    new_invoice = replace(invoice, signature=None)
     signature = invoice.signature
-    invoice.signature = None
+    if not signature:
+        print("No signature in invoice")
     _verify_signature(
-        invoice.to_tlv(),
+        new_invoice.to_tlv(),
         none_throws(signature).hex(),
         other_vasp_pubkeys.get_signing_pubkey(),
     )
