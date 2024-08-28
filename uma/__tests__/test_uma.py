@@ -22,11 +22,13 @@ from uma.public_key_cache import InMemoryPublicKeyCache
 from uma.type_utils import none_throws
 from uma.protocol.post_tx_callback import UtxoWithAmount
 from uma.protocol.v0.payreq import PayRequest as V0PayRequest
+from uma.protocol.invoice import InvoiceCurrency
 from uma.uma import (
     create_compliance_payer_data,
     create_pubkey_response,
     create_uma_lnurlp_request_url,
     create_uma_lnurlp_response,
+    create_uma_invoice,
     create_pay_req_response,
     create_pay_request,
     create_post_transaction_callback,
@@ -43,6 +45,7 @@ from uma.uma import (
     verify_post_transaction_callback_signature,
     verify_uma_lnurlp_query_signature,
     verify_uma_lnurlp_response_signature,
+    verify_uma_invoice_signature,
 )
 from uma.uma_invoice_creator import IUmaInvoiceCreator
 
@@ -955,3 +958,26 @@ def test_pubkey_response_create_and_serialize() -> None:
     assert bytes.fromhex(pubkey) == result_pubkey_response.encryption_pubkey
     assert bytes.fromhex(pubkey) == pubkey_response.get_signing_pubkey()
     assert bytes.fromhex(pubkey) == pubkey_response.get_encryption_pubkey()
+
+
+def test_uma_invoice_signature() -> None:
+    private_key = generate_key()
+    pubkey_response = _create_pubkey_response(private_key, private_key)
+
+    invoice = create_uma_invoice(
+        receiver_uma="$alice@vasp.com",
+        receiving_currency_amount=1000,
+        receiving_currency=InvoiceCurrency(
+            code="USD",
+            name="US Dollar",
+            symbol="$",
+            decimals=2,
+        ),
+        expiration=datetime.fromtimestamp(1, timezone.utc),
+        callback="https://vasp.com/api/lnurl/invoice",
+        is_subject_to_travel_rule=True,
+        signing_private_key=private_key.secret,
+    )
+
+    assert verify_uma_invoice_signature(invoice, pubkey_response) is None
+    assert invoice.signature is not None
