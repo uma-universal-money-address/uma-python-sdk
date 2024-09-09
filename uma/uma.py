@@ -427,7 +427,7 @@ def verify_uma_lnurlp_query_signature(
 def _add_invoice_uuid_to_metadata(metadata: str, invoice_uuid: str) -> str:
     try:
         data = json.loads(metadata)
-        data.append(["text/plain", invoice_uuid])
+        data.append(["text/uma-invoice", invoice_uuid])
         return json.dumps(data)
     except json.JSONDecodeError as e:
         raise ValueError(f"Invalid JSON: {e}") from e
