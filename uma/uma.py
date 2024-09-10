@@ -874,10 +874,10 @@ def create_uma_invoice(
         expiration=int(expiration.timestamp()),
         is_subject_to_travel_rule=is_subject_to_travel_rule,
         required_payer_data=invoice_required_payer_data,
-        uma_version=UMA_PROTOCOL_VERSION,
+        uma_versions=UMA_PROTOCOL_VERSION,
         comment_chars_allowed=comment_chars_allowed,
         sender_uma=sender_uma,
-        invoice_limit=invoice_limit,
+        max_num_payments=invoice_limit,
         kyc_status=receiver_kyc_status,
         callback=callback,
     )

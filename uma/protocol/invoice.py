@@ -93,8 +93,8 @@ class Invoice(TLVCodable):
     required_payer_data: Optional[InvoiceCounterpartyDataOptions]
 
     # UmaVersion is a list of UMA versions that the VASP supports for this transaction. It should be
-    # containing the lowest minor version of each major version it supported, separated by commas.
-    uma_version: str
+    # containing the highest minor version of each major version it supported, separated by commas.
+    uma_versions: str
 
     # CommentCharsAllowed is the number of characters that the sender can include in the comment field of the pay request.
     comment_chars_allowed: Optional[int]
@@ -103,7 +103,7 @@ class Invoice(TLVCodable):
     sender_uma: Optional[str]
 
     # The maximum number of times the invoice can be paid
-    invoice_limit: Optional[int]
+    max_num_payments: Optional[int]
 
     # KYC status of the receiver, default is verified.
     kyc_status: Optional[KycStatus]
@@ -123,10 +123,10 @@ class Invoice(TLVCodable):
         expiration: int = 0,
         is_subject_to_travel_rule: bool = False,
         required_payer_data: Optional[InvoiceCounterpartyDataOptions] = None,
-        uma_version: str = "",
+        uma_versions: str = "",
         comment_chars_allowed: Optional[int] = None,
         sender_uma: Optional[str] = None,
-        invoice_limit: Optional[int] = None,
+        max_num_payments: Optional[int] = None,
         kyc_status: Optional[KycStatus] = None,
         callback: str = "",
         signature: Optional[bytes] = None,
@@ -138,10 +138,10 @@ class Invoice(TLVCodable):
         self.expiration = expiration
         self.is_subject_to_travel_rule = is_subject_to_travel_rule
         self.required_payer_data = required_payer_data
-        self.uma_version = uma_version
+        self.uma_versions = uma_versions
         self.comment_chars_allowed = comment_chars_allowed
         self.sender_uma = sender_uma
-        self.invoice_limit = invoice_limit
+        self.max_num_payments = max_num_payments
         self.kyc_status = kyc_status
         self.callback = callback
         self.signature = signature
@@ -156,10 +156,10 @@ class Invoice(TLVCodable):
             "expiration": 4,
             "is_subject_to_travel_rule": 5,
             "required_payer_data": 6,
-            "uma_version": 7,
+            "uma_versions": 7,
             "comment_chars_allowed": 8,
             "sender_uma": 9,
-            "invoice_limit": 10,
+            "max_num_payments": 10,
             "kyc_status": 11,
             "callback": 12,
             "signature": 100,
