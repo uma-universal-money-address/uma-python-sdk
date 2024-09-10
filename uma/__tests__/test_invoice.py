@@ -24,8 +24,8 @@ def test_invoice_tlv() -> None:
         ),
         comment_chars_allowed=None,
         sender_uma=None,
-        invoice_limit=None,
-        uma_version="0.3",
+        max_num_payments=None,
+        uma_versions="0.3",
         kyc_status=KycStatus.VERIFIED,
         callback="https://example.com/callback",
         signature=b"signature",
@@ -47,13 +47,13 @@ def test_invoice_tlv() -> None:
     assert new_i.expiration == i.expiration
     assert new_i.is_subject_to_travel_rule == i.is_subject_to_travel_rule
     assert new_i.required_payer_data == i.required_payer_data
-    assert new_i.uma_version == i.uma_version
+    assert new_i.uma_versions == i.uma_versions
     assert new_i.kyc_status == i.kyc_status
     assert new_i.callback == i.callback
     assert new_i.signature == i.signature
     assert new_i.comment_chars_allowed == i.comment_chars_allowed
     assert new_i.sender_uma == i.sender_uma
-    assert new_i.invoice_limit == i.invoice_limit
+    assert new_i.max_num_payments == i.max_num_payments
     assert new_i.kyc_status == i.kyc_status
     assert new_i.callback == i.callback
     assert new_i.signature == i.signature
