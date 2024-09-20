@@ -374,7 +374,7 @@ def parse_lnurlp_request(url: str) -> LnurlpRequest:
     if len(paths) != 4 or paths[1] != ".well-known" or paths[2] != "lnurlp":
         raise InvalidRequestException("Invalid request path.")
 
-    if not re.match(r"^[\$a-zA-Z0-9@._-\+]+$", paths[3]):
+    if not re.match(r"^[\$a-zA-Z0-9@._\-\+]+$", paths[3]):
         raise InvalidRequestException("Invalid characters in receiver address.")
 
     receiver_address = paths[3] + "@" + parsed_url.netloc
