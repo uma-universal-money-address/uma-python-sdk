@@ -1,6 +1,11 @@
 # Changelog
 
+## 1.2.2
+
+- Sanitize the username part of the LNURLP URL to avoid XSS attacks.
+
 ## 1.2.1
+
 - Bug fix: Verify UMA invoice signature won't mutate the invoice object.
 
 ## 1.2.0
