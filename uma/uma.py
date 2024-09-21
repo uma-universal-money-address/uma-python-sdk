@@ -1,6 +1,7 @@
 # Copyright ©, 2022-present, Lightspark Group, Inc. - All Rights Reserved
 import json
 import random
+import re
 from dataclasses import replace
 from datetime import datetime, timezone
 from math import floor
@@ -28,6 +29,11 @@ from uma.protocol.counterparty_data import (
     CounterpartyDataOptions,
 )
 from uma.protocol.currency import Currency
+from uma.protocol.invoice import (
+    Invoice,
+    InvoiceCounterpartyDataOptions,
+    InvoiceCurrency,
+)
 from uma.protocol.kyc_status import KycStatus
 from uma.protocol.lnurlp_request import LnurlpRequest
 from uma.protocol.lnurlp_response import LnurlComplianceResponse, LnurlpResponse
@@ -45,11 +51,6 @@ from uma.protocol.payreq_response import (
 )
 from uma.protocol.post_tx_callback import PostTransactionCallback, UtxoWithAmount
 from uma.protocol.pubkey_response import PubkeyResponse
-from uma.protocol.invoice import (
-    Invoice,
-    InvoiceCounterpartyDataOptions,
-    InvoiceCurrency,
-)
 from uma.public_key_cache import IPublicKeyCache
 from uma.type_utils import none_throws
 from uma.uma_invoice_creator import IUmaInvoiceCreator
@@ -372,6 +373,9 @@ def parse_lnurlp_request(url: str) -> LnurlpRequest:
     paths = parsed_url.path.split("/")
     if len(paths) != 4 or paths[1] != ".well-known" or paths[2] != "lnurlp":
         raise InvalidRequestException("Invalid request path.")
+
+    if not re.match(r"^[\$a-zA-Z0-9@._\-\+]+$", paths[3]):
+        raise InvalidRequestException("Invalid characters in receiver address.")
 
     receiver_address = paths[3] + "@" + parsed_url.netloc
     is_subject_to_travel_rule = (
