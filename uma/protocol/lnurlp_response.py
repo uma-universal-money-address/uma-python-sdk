@@ -3,9 +3,11 @@ from typing import Dict, List, Optional
 from uma.JSONable import JSONable
 
 from uma.exceptions import InvalidRequestException
+from uma.protocol.backing_signature import BackingSignature
 from uma.protocol.counterparty_data import CounterpartyDataOptions
 from uma.protocol.currency import Currency
 from uma.protocol.kyc_status import KycStatus
+from uma.signing_utils import sign_payload
 
 
 @dataclass
@@ -38,6 +40,11 @@ class LnurlComplianceResponse(JSONable):
     receiver_identifier: str
     """
     The UMA address of the receiver.
+    """
+
+    backing_signatures: Optional[List[BackingSignature]] = None
+    """
+    List of backing VASP signatures.
     """
 
 
@@ -124,3 +131,27 @@ class LnurlpResponse(JSONable):
             ]
         )
         return signable.encode("utf8")
+
+    def append_backing_signature(self, signing_private_key: bytes, domain: str) -> None:
+        """
+        Appends a backing signature to the lnurlp response.
+
+        Args:
+            signing_private_key: The private key of the backing VASP which is used to sign the payload.
+            domain: The domain of the backing VASP that produced the signature. Public keys for this VASP
+            will be fetched from this domain at /.well-known/lnurlpubkey and used to verify the signature.
+        """
+        if not self.is_uma_response():
+            return
+        compliance = self.compliance
+        if not compliance:
+            raise InvalidRequestException(
+                "compliance field is required for adding backing signatures."
+            )
+        payload = self.signable_payload()
+        backing_signature = sign_payload(payload, signing_private_key)
+        if compliance.backing_signatures is None:
+            compliance.backing_signatures = []
+        compliance.backing_signatures.append(
+            BackingSignature(domain=domain, signature=backing_signature)
+        )

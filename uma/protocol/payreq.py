@@ -4,10 +4,12 @@ from typing import Any, Dict, Optional
 
 from uma.exceptions import InvalidRequestException
 from uma.JSONable import JSONable
+from uma.protocol.backing_signature import BackingSignature
 from uma.protocol.counterparty_data import CounterpartyDataOptions
 from uma.protocol.payer_data import PayerData, compliance_from_payer_data
 from uma.protocol.v0.payreq import PayRequest as V0PayRequest
 from uma.protocol.v1.payreq import PayRequest as V1PayRequest
+from uma.signing_utils import sign_payload
 from uma.type_utils import none_throws
 from uma.version import MAJOR_VERSION
 
@@ -186,3 +188,31 @@ class PayRequest(JSONable):
             comment=params.get("comment"),
             requested_payee_data=payee_data,
         )
+
+    def append_backing_signature(self, signing_private_key: bytes, domain: str) -> None:
+        """
+        Appends a backing signature to the payreq request.
+
+        Args:
+            signing_private_key: The private key of the backing VASP which is used to sign the payload.
+            domain: The domain of the backing VASP that produced the signature. Public keys for this VASP
+            will be fetched from this domain at /.well-known/lnurlpubkey and used to verify the signature.
+        """
+        if not self.is_uma_request():
+            return
+        payer_data = self.payer_data
+        if not payer_data:
+            raise InvalidRequestException("payer_data is required.")
+        compliance = compliance_from_payer_data(payer_data)
+        if not compliance:
+            raise InvalidRequestException(
+                "compliance data is required for backing signatures"
+            )
+        payload = self.signable_payload()
+        backing_signature = sign_payload(payload, signing_private_key)
+        if compliance.backing_signatures is None:
+            compliance.backing_signatures = []
+        compliance.backing_signatures.append(
+            BackingSignature(domain=domain, signature=backing_signature)
+        )
+        payer_data["compliance"] = compliance.to_dict()
