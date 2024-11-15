@@ -11,7 +11,7 @@ from uuid import uuid4
 
 import requests
 from coincurve.ecdsa import cdata_to_der, der_to_cdata, signature_normalize
-from coincurve.keys import PrivateKey, PublicKey
+from coincurve.keys import PublicKey
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import serialization
 from ecies import encrypt
@@ -407,8 +407,10 @@ def parse_lnurlp_request(url: str) -> LnurlpRequest:
         for pair in pairs:
             try:
                 decoded_pair = unquote(pair)
-            except:
-                raise InvalidRequestException("Invalid backing signature format")
+            except TypeError as ex:
+                raise InvalidRequestException(
+                    "Invalid backing signature format"
+                ) from ex
 
             last_colon_index = decoded_pair.rfind(":")
             if last_colon_index == -1:
