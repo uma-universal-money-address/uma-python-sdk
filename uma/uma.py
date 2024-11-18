@@ -6,12 +6,12 @@ from dataclasses import replace
 from datetime import datetime, timezone
 from math import floor
 from typing import Dict, List, Optional
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, urlparse, unquote
 from uuid import uuid4
 
 import requests
 from coincurve.ecdsa import cdata_to_der, der_to_cdata, signature_normalize
-from coincurve.keys import PrivateKey, PublicKey
+from coincurve.keys import PublicKey
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import serialization
 from ecies import encrypt
@@ -28,6 +28,7 @@ from uma.protocol.counterparty_data import (
     CounterpartyDataOption,
     CounterpartyDataOptions,
 )
+from uma.protocol.backing_signature import BackingSignature
 from uma.protocol.currency import Currency
 from uma.protocol.invoice import (
     Invoice,
@@ -52,6 +53,7 @@ from uma.protocol.payreq_response import (
 from uma.protocol.post_tx_callback import PostTransactionCallback, UtxoWithAmount
 from uma.protocol.pubkey_response import PubkeyResponse
 from uma.public_key_cache import IPublicKeyCache
+from uma.signing_utils import sign_payload
 from uma.type_utils import none_throws
 from uma.uma_invoice_creator import IUmaInvoiceCreator
 from uma.urls import is_domain_local
@@ -126,12 +128,6 @@ def generate_nonce() -> str:
     return str(random.randint(0, 0xFFFFFFFF))
 
 
-def _sign_payload(payload: bytes, private_key: bytes) -> str:
-    key = _load_private_key(private_key)
-    signature = key.sign(payload)
-    return signature.hex()
-
-
 def verify_pay_request_signature(
     request: PayRequest, other_vasp_pubkeys: PubkeyResponse, nonce_cache: INonceCache
 ) -> None:
@@ -153,6 +149,30 @@ def verify_pay_request_signature(
         compliance_data.signature,
         other_vasp_pubkeys.get_signing_pubkey(),
     )
+
+
+def verify_pay_request_backing_signatures(
+    request: PayRequest, cache: IPublicKeyCache
+) -> None:
+    if not request.payer_data:
+        raise InvalidRequestException(
+            "UMA requires payer data in request. For regular LNURL requests, "
+            + "payer data is optional and signatures should not be checked."
+        )
+    compliance = compliance_from_payer_data(request.payer_data)
+    if not compliance:
+        raise InvalidRequestException("Missing compliance data in request")
+
+    backing_signatures = compliance.backing_signatures
+    if backing_signatures:
+        payload = request.signable_payload()
+        for backing_sig in backing_signatures:
+            backing_vasp_pubkeys = fetch_public_key_for_vasp(backing_sig.domain, cache)
+            _verify_signature(
+                payload,
+                backing_sig.signature,
+                backing_vasp_pubkeys.get_signing_pubkey(),
+            )
 
 
 def _verify_signature(payload: bytes, signature: str, signing_pubkey: bytes) -> None:
@@ -192,13 +212,6 @@ def _load_public_key(key: bytes) -> PublicKey:
         )
 
 
-def _load_private_key(key: bytes) -> PrivateKey:
-    try:
-        return PrivateKey(key)
-    except ValueError:
-        return PrivateKey.from_der(key)
-
-
 def _encrypt_travel_rule_info(
     travel_rule_info: str, receiver_encryption_pubkey: bytes
 ) -> str:
@@ -228,7 +241,7 @@ def create_compliance_payer_data(
         else None
     )
     payload = "|".join([payer_identifier, nonce, str(timestamp)])
-    signature = _sign_payload(payload.encode(), signing_private_key)
+    signature = sign_payload(payload.encode(), signing_private_key)
     return CompliancePayerData(
         kyc_status=payer_kyc_status,
         utxos=payer_utxos,
@@ -336,7 +349,7 @@ def create_uma_lnurlp_request_url(
         timestamp=datetime.now(timezone.utc),
         uma_version=uma_version_override or UMA_PROTOCOL_VERSION,
     )
-    request.signature = _sign_payload(request.signable_payload(), signing_private_key)
+    request.signature = sign_payload(request.signable_payload(), signing_private_key)
     return request.encode_to_url()
 
 
@@ -348,6 +361,11 @@ def parse_lnurlp_request(url: str) -> LnurlpRequest:
     nonce = query.get("nonce", [""])[0] if query.get("nonce") else None
     timestamp = query.get("timestamp", [""])[0] if query.get("timestamp") else None
     uma_version = query.get("umaVersion", [""])[0] if query.get("umaVersion") else None
+    backing_signatures = (
+        query.get("backingSignatures", [""])[0]
+        if query.get("backingSignatures")
+        else None
+    )
 
     if uma_version and not is_version_supported(uma_version):
         raise UnsupportedVersionException(
@@ -382,6 +400,30 @@ def parse_lnurlp_request(url: str) -> LnurlpRequest:
         query.get("isSubjectToTravelRule", [""])[0].lower() == "true"
     )
 
+    backing_signatures_parsed = None
+    if backing_signatures:
+        pairs = backing_signatures.split(",")
+        signatures = []
+        for pair in pairs:
+            try:
+                decoded_pair = unquote(pair)
+            except TypeError as ex:
+                raise InvalidRequestException(
+                    "Invalid backing signature format"
+                ) from ex
+
+            last_colon_index = decoded_pair.rfind(":")
+            if last_colon_index == -1:
+                raise InvalidRequestException("Invalid backing signature format")
+
+            signatures.append(
+                BackingSignature(
+                    domain=decoded_pair[:last_colon_index],
+                    signature=decoded_pair[last_colon_index + 1 :],
+                )
+            )
+        backing_signatures_parsed = signatures
+
     return LnurlpRequest(
         receiver_address=receiver_address,
         nonce=nonce,
@@ -390,6 +432,7 @@ def parse_lnurlp_request(url: str) -> LnurlpRequest:
         vasp_domain=vasp_domain,
         timestamp=(_parse_timestamp(int(timestamp)) if timestamp else None),
         uma_version=uma_version,
+        backing_signatures=backing_signatures_parsed,
     )
 
 
@@ -409,7 +452,8 @@ def verify_uma_lnurlp_query_signature(
     request: LnurlpRequest, other_vasp_pubkeys: PubkeyResponse, nonce_cache: INonceCache
 ) -> None:
     """
-    Verifies the signature on an uma Lnurlp query based on the public key of the VASP making the request.
+    Verifies the primary signature on an uma Lnurlp query based on the public key of the VASP
+    making the request.
 
     Args:
         request: the signed request to verify.
@@ -426,6 +470,34 @@ def verify_uma_lnurlp_query_signature(
         none_throws(request.signature),
         other_vasp_pubkeys.get_signing_pubkey(),
     )
+
+
+def verify_uma_lnurlp_query_backing_signatures(
+    request: LnurlpRequest, cache: IPublicKeyCache
+) -> None:
+    """
+    Verifies the backing signatures on an uma Lnurlp query. You may optionally
+    call this function after verify_uma_lnurlp_query_signature to verify signatures
+    from backing VASPs.
+
+    Args:
+        request: the signed request to verify.
+        cache: the public key cache to use. You can use the InMemoryPublicKeyCache class,
+        or implement your own persistent cache with any storage type.
+    """
+    if not request.backing_signatures:
+        return
+
+    backing_signatures = request.backing_signatures
+    if backing_signatures:
+        payload = request.signable_payload()
+        for backing_sig in backing_signatures:
+            backing_vasp_pubkeys = fetch_public_key_for_vasp(backing_sig.domain, cache)
+            _verify_signature(
+                payload,
+                backing_sig.signature,
+                backing_vasp_pubkeys.get_signing_pubkey(),
+            )
 
 
 def _add_invoice_uuid_to_metadata(metadata: str, invoice_uuid: str) -> str:
@@ -582,7 +654,7 @@ def _create_compliance_payee_data(
         signature_timestamp=timestamp,
     )
     payload = compliance_payee_data.signable_payload(payer_identifier, payee_identifier)
-    signature = _sign_payload(payload, signing_private_key)
+    signature = sign_payload(payload, signing_private_key)
     compliance_payee_data.signature = signature
     return compliance_payee_data
 
@@ -632,6 +704,51 @@ def verify_pay_req_response_signature(
         none_throws(compliance_data.signature),
         other_vasp_pubkeys.get_signing_pubkey(),
     )
+
+
+def verify_pay_req_response_backing_signatures(
+    response: PayReqResponse,
+    cache: IPublicKeyCache,
+    sender_address: str,
+    receiver_address: str,
+) -> None:
+    payee_data = response.payee_data
+    if not payee_data:
+        raise InvalidRequestException(
+            "Missing payee data in response. Cannot verify signature."
+        )
+    compliance_data = response.get_compliance()
+    if not compliance_data:
+        raise InvalidRequestException("Missing compliance data in response")
+
+    if response.uma_major_version != 1:
+        raise InvalidRequestException(
+            "Signatures were added to payreq responses in UMA v1. This response is from an UMA v0 receiving VASP."
+        )
+
+    payee_data_identifier = payee_data.get("identifier")
+    if (
+        payee_data_identifier is not None
+        and payee_data_identifier.lower() != receiver_address.lower()
+    ):
+        raise InvalidRequestException(
+            f"Payee data identifier {payee_data_identifier} does not match receiver address {receiver_address}."
+        )
+
+    backing_signatures = compliance_data.backing_signatures
+    if backing_signatures:
+        if payee_data_identifier is None:
+            payee_data_identifier = receiver_address
+        payload = compliance_data.signable_payload(
+            sender_address, payee_data_identifier
+        )
+        for backing_sig in backing_signatures:
+            backing_vasp_pubkeys = fetch_public_key_for_vasp(backing_sig.domain, cache)
+            _verify_signature(
+                payload,
+                backing_sig.signature,
+                backing_vasp_pubkeys.get_signing_pubkey(),
+            )
 
 
 def create_uma_lnurlp_response(
@@ -699,7 +816,7 @@ def _create_signed_lnurlp_compliance_response(
     timestamp = int(datetime.now(timezone.utc).timestamp())
     nonce = generate_nonce()
     payload = "|".join([request.receiver_address, nonce, str(timestamp)])
-    signature = _sign_payload(payload.encode(), signing_private_key)
+    signature = sign_payload(payload.encode(), signing_private_key)
     return LnurlComplianceResponse(
         kyc_status=receiver_kyc_status,
         signature=signature,
@@ -731,6 +848,33 @@ def verify_uma_lnurlp_response_signature(
         none_throws(response.compliance).signature,
         other_vasp_pubkeys.get_signing_pubkey(),
     )
+
+
+def verify_uma_lnurlp_response_backing_signatures(
+    response: LnurlpResponse, cache: IPublicKeyCache
+) -> None:
+    """
+    Verifies the backing signatures on an uma Lnurlp query. You may optionally
+    call this function after verify_uma_lnurlp_response_signature to verify signatures
+    from backing VASPs.
+
+    Args:
+        response: the signed response to verify.
+        cache: the public key cache to use. You can use the InMemoryPublicKeyCache class,
+        or implement your own persistent cache with any storage type.
+    """
+    if not response.compliance:
+        raise InvalidRequestException("Missing compliance data in response")
+
+    backing_signatures = response.compliance.backing_signatures
+    if not backing_signatures:
+        return
+    for backing_sig in backing_signatures:
+        payload = response.signable_payload()
+        backing_vasp_pubkeys = fetch_public_key_for_vasp(backing_sig.domain, cache)
+        _verify_signature(
+            payload, backing_sig.signature, backing_vasp_pubkeys.get_signing_pubkey()
+        )
 
 
 def _validate_currency_options(currency_options: List[Currency]) -> None:
@@ -783,7 +927,7 @@ def create_post_transaction_callback(
         signature_timestamp=timestamp,
     )
     payload = post_transaction_callback.signable_payload()
-    signature = _sign_payload(payload, signing_private_key)
+    signature = sign_payload(payload, signing_private_key)
     post_transaction_callback.signature = signature
     return post_transaction_callback
 
@@ -887,7 +1031,7 @@ def create_uma_invoice(
     )
 
     payload = invoice.to_tlv()
-    signature = _sign_payload(payload, signing_private_key)
+    signature = sign_payload(payload, signing_private_key)
     invoice.signature = bytes.fromhex(signature)
     return invoice
 

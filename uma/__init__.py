@@ -51,11 +51,15 @@ from uma.uma import (
     parse_pay_req_response,
     parse_pay_request,
     verify_pay_req_response_signature,
+    verify_pay_req_response_backing_signatures,
     verify_pay_request_signature,
+    verify_pay_request_backing_signatures,
     verify_post_transaction_callback_signature,
     verify_uma_invoice_signature,
     verify_uma_lnurlp_query_signature,
+    verify_uma_lnurlp_query_backing_signatures,
     verify_uma_lnurlp_response_signature,
+    verify_uma_lnurlp_response_backing_signatures,
 )
 from uma.uma_invoice_creator import IUmaInvoiceCreator
 from uma.urls import is_domain_local

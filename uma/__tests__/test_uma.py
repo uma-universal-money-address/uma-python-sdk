@@ -41,10 +41,14 @@ from uma.uma import (
     parse_post_transaction_callback,
     parse_pubkey_response,
     verify_pay_request_signature,
+    verify_pay_request_backing_signatures,
     verify_pay_req_response_signature,
+    verify_pay_req_response_backing_signatures,
     verify_post_transaction_callback_signature,
     verify_uma_lnurlp_query_signature,
+    verify_uma_lnurlp_query_backing_signatures,
     verify_uma_lnurlp_response_signature,
+    verify_uma_lnurlp_response_backing_signatures,
     verify_uma_invoice_signature,
 )
 from uma.uma_invoice_creator import IUmaInvoiceCreator
@@ -143,6 +147,65 @@ def test_pay_request_create_and_parse() -> None:
     assert (
         decrypt(private_key.secret, bytes.fromhex(encrypted_travel_rule_info)).decode()
         == travel_rule_info
+    )
+
+
+def test_sign_and_verify_payreq_backing_signatures() -> None:
+    sender_private_key = generate_key()
+    receiver_private_key = generate_key()
+    backing_vasp_private_key = generate_key()
+    receiver_pubkey_response = _create_pubkey_response(
+        receiver_private_key, receiver_private_key
+    )
+    payer_identifier = "$alice@vasp1.com"
+    payer_compliance_data = create_compliance_payer_data(
+        signing_private_key=sender_private_key.secret,
+        receiver_encryption_pubkey=receiver_pubkey_response.get_encryption_pubkey(),
+        payer_identifier=payer_identifier,
+        travel_rule_info=None,
+        payer_kyc_status=KycStatus.VERIFIED,
+        payer_utxos=["abcdef12345"],
+        payer_node_pubkey="dummy_node_key",
+        utxo_callback="/api/lnurl/utxocallback?txid=1234",
+    )
+
+    pay_request = create_pay_request(
+        receiving_currency_code="USD",
+        is_amount_in_receiving_currency=True,
+        amount=1000,
+        payer_identifier=payer_identifier,
+        uma_major_version=1,
+        payer_name=None,
+        payer_email=None,
+        payer_compliance=payer_compliance_data,
+    )
+    pay_request_without_backing_signature = parse_pay_request(pay_request.to_json())
+
+    # append backing signature
+    backing_domain = "backingvasp.com"
+    pay_request_without_backing_signature.append_backing_signature(
+        backing_vasp_private_key.secret, backing_domain
+    )
+    pay_request_with_backing_signature = parse_pay_request(
+        pay_request_without_backing_signature.to_json()
+    )
+
+    # verify backing signature
+    compliance = compliance_from_payer_data(
+        none_throws(pay_request_with_backing_signature.payer_data)
+    )
+    assert compliance is not None
+    assert compliance.backing_signatures is not None
+    assert len(compliance.backing_signatures) == 1
+    public_key_cache = InMemoryPublicKeyCache()
+    backing_vasp_pubkey_response = _create_pubkey_response(
+        backing_vasp_private_key, backing_vasp_private_key
+    )
+    public_key_cache.add_public_key_for_vasp(
+        backing_domain, backing_vasp_pubkey_response
+    )
+    verify_pay_request_backing_signatures(
+        pay_request_with_backing_signature, public_key_cache
     )
 
 
@@ -539,6 +602,83 @@ def test_pay_req_with_locked_sending_amount() -> None:
     )
 
 
+def test_sign_and_verify_payreq_response_backing_signatures() -> None:
+    sender_private_key = generate_key()
+    receiver_private_key = generate_key()
+    backing_vasp_private_key = generate_key()
+    receiver_pubkey_response = _create_pubkey_response(
+        receiver_private_key, receiver_private_key
+    )
+    currency_code = "USD"
+    payer_identifier = "$alice@vasp1.com"
+    payee_identifier = "$bob@vasp2.com"
+    pay_request = create_pay_request(
+        receiving_currency_code=currency_code,
+        is_amount_in_receiving_currency=True,
+        amount=1000,
+        payer_identifier=payer_identifier,
+        uma_major_version=1,
+        payer_name=None,
+        payer_email=None,
+        payer_compliance=create_compliance_payer_data(
+            signing_private_key=sender_private_key.secret,
+            receiver_encryption_pubkey=receiver_pubkey_response.get_encryption_pubkey(),
+            payer_identifier=payer_identifier,
+            travel_rule_info="some TR info for VASP2",
+            payer_kyc_status=KycStatus.VERIFIED,
+            payer_utxos=["abcdef12345"],
+            payer_node_pubkey="dummy_node_key",
+            utxo_callback="/api/lnurl/utxocallback?txid=1234",
+        ),
+    )
+    response = create_pay_req_response(
+        request=pay_request,
+        invoice_creator=DummyUmaInvoiceCreator(),
+        metadata=_create_metadata(),
+        receiving_currency_code=currency_code,
+        receiving_currency_decimals=2,
+        msats_per_currency_unit=24_150,
+        receiver_fees_msats=2_000,
+        receiver_utxos=["abcdef12345"],
+        receiver_node_pubkey="dummy_pub_key",
+        utxo_callback="/api/lnurl/utxocallback?txid=1234",
+        payee_identifier=payee_identifier,
+        signing_private_key=receiver_private_key.secret,
+    )
+    response_without_backing_signature = parse_pay_req_response(response.to_json())
+
+    # append backing signature
+    backing_domain = "backingvasp.com"
+    response_without_backing_signature.append_backing_signature(
+        backing_vasp_private_key.secret,
+        backing_domain,
+        payer_identifier,
+        payee_identifier,
+    )
+    response_with_backing_signature = parse_pay_req_response(
+        response_without_backing_signature.to_json()
+    )
+
+    # verify backing signatures
+    compliance = response_with_backing_signature.get_compliance()
+    assert compliance is not None
+    assert compliance.backing_signatures is not None
+    assert len(compliance.backing_signatures) == 1
+    public_key_cache = InMemoryPublicKeyCache()
+    backing_vasp_pubkey_response = _create_pubkey_response(
+        backing_vasp_private_key, backing_vasp_private_key
+    )
+    public_key_cache.add_public_key_for_vasp(
+        backing_domain, backing_vasp_pubkey_response
+    )
+    verify_pay_req_response_backing_signatures(
+        response_with_backing_signature,
+        public_key_cache,
+        payer_identifier,
+        payee_identifier,
+    )
+
+
 def _create_metadata() -> str:
     metadata = [
         ["text/plain", "Pay to vasp2.com user $bob"],
@@ -741,6 +881,70 @@ def test_parse_v0_lnurlp_response() -> None:
         )
 
 
+def test_sign_and_verify_lnurlp_response_with_backing_signature() -> None:
+    sender_private_key = generate_key()
+    receiver_private_key = generate_key()
+    backing_vasp_private_key = generate_key()
+    payer_data_options = create_counterparty_data_options(
+        {"name": False, "email": False, "compliance": True, "identifier": True}
+    )
+    currencies = [
+        Currency(
+            code="USD",
+            name="US Dollar",
+            symbol="$",
+            millisatoshi_per_unit=34_150,
+            min_sendable=1,
+            max_sendable=10_000_000,
+            decimals=2,
+            uma_major_version=0,
+        )
+    ]
+    lnurlp_request_url = create_uma_lnurlp_request_url(
+        signing_private_key=sender_private_key.secret,
+        receiver_address="$bob@vasp2.com",
+        sender_vasp_domain="vasp1.com",
+        is_subject_to_travel_rule=True,
+    )
+    lnurlp_request = parse_lnurlp_request(lnurlp_request_url)
+    response = create_uma_lnurlp_response(
+        request=lnurlp_request,
+        signing_private_key=receiver_private_key.secret,
+        requires_travel_rule_info=True,
+        callback="https://vasp2.com/api/lnurl/payreq/$bob",
+        encoded_metadata='["text/plain","Pay to Bob"]',
+        min_sendable_sats=1,
+        max_sendable_sats=10_000_000,
+        payer_data_options=payer_data_options,
+        currency_options=currencies,
+        receiver_kyc_status=KycStatus.VERIFIED,
+    )
+
+    # append backing signature
+    response_without_backing_signature = parse_lnurlp_response(response.to_json())
+    backing_domain = "backingvasp.com"
+    response_without_backing_signature.append_backing_signature(
+        backing_vasp_private_key.secret,
+        backing_domain,
+    )
+
+    # verify backing signature
+    result_response = parse_lnurlp_response(
+        response_without_backing_signature.to_json()
+    )
+    assert result_response.compliance is not None
+    assert result_response.compliance.backing_signatures is not None
+    assert len(result_response.compliance.backing_signatures) == 1
+    public_key_cache = InMemoryPublicKeyCache()
+    backing_vasp_pubkey_response = _create_pubkey_response(
+        backing_vasp_private_key, backing_vasp_private_key
+    )
+    public_key_cache.add_public_key_for_vasp(
+        backing_domain, backing_vasp_pubkey_response
+    )
+    verify_uma_lnurlp_response_backing_signatures(result_response, public_key_cache)
+
+
 def test_invalid_lnurlp_signature() -> None:
     private_key = generate_key()
     pubkey_response = _create_pubkey_response(private_key, private_key)
@@ -799,6 +1003,39 @@ def test_lnurlp_signature_too_old() -> None:
     # test signature too old
     with pytest.raises(InvalidNonceException, match="Timestamp is too old."):
         verify_uma_lnurlp_query_signature(lnurlp_request, pubkey_response, nonce_cache)
+
+
+def test_sign_and_verify_lnurlp_request_with_backing_signature() -> None:
+    sender_private_key = generate_key()
+    backing_vasp_private_key = generate_key()
+    lnurlp_request_url = create_uma_lnurlp_request_url(
+        signing_private_key=sender_private_key.secret,
+        receiver_address="$bob@vasp2.com",
+        sender_vasp_domain="vasp1.com",
+        is_subject_to_travel_rule=True,
+    )
+
+    # append backing signature
+    lnurlp_request = parse_lnurlp_request(lnurlp_request_url)
+    backing_domain = "backingvasp.com"
+    lnurlp_request.append_backing_signature(
+        backing_vasp_private_key.secret,
+        backing_domain,
+    )
+    lnurlp_request_url = lnurlp_request.encode_to_url()
+
+    # verify backing signature
+    lnurlp_request = parse_lnurlp_request(lnurlp_request_url)
+    public_key_cache = InMemoryPublicKeyCache()
+    backing_vasp_pubkey_response = _create_pubkey_response(
+        backing_vasp_private_key, backing_vasp_private_key
+    )
+    public_key_cache.add_public_key_for_vasp(
+        backing_domain, backing_vasp_pubkey_response
+    )
+    assert lnurlp_request.backing_signatures is not None
+    assert len(lnurlp_request.backing_signatures) == 1
+    verify_uma_lnurlp_query_backing_signatures(lnurlp_request, public_key_cache)
 
 
 def test_high_signature_normalization() -> None:

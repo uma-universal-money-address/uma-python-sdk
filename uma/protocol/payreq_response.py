@@ -3,7 +3,10 @@ import json
 from typing import Any, Dict, List, Optional
 
 from uma.JSONable import JSONable
+from uma.exceptions import InvalidRequestException
+from uma.protocol.backing_signature import BackingSignature
 from uma.protocol.payee_data import PayeeData
+from uma.signing_utils import sign_payload
 from uma.version import MAJOR_VERSION
 
 
@@ -37,6 +40,11 @@ class PayReqResponseCompliance(JSONable):
     Time stamp of the signature in seconds since epoch
 
     Note: This field is optional for UMA v0.X backwards-compatibility. It is required for UMA v1.X.
+    """
+
+    backing_signatures: Optional[List[BackingSignature]] = None
+    """
+    List of backing VASP signatures.
     """
 
     def signable_payload(self, sender_address: str, receiver_address: str) -> bytes:
@@ -184,6 +192,43 @@ class PayReqResponse(JSONable):
         if not self.payee_data:
             return None
         return PayReqResponseCompliance.from_payee_data(self.payee_data)
+
+    def append_backing_signature(
+        self,
+        signing_private_key: bytes,
+        domain: str,
+        sender_address: str,
+        receiver_address: str,
+    ) -> None:
+        """
+        Appends a backing signature to the payreq response.
+
+        Args:
+            signing_private_key: The private key of the backing VASP which is used to sign the payload.
+            domain: The domain of the backing VASP that produced the signature. Public keys for this VASP
+            will be fetched from this domain at /.well-known/lnurlpubkey and used to verify the signature.
+            sender_address: The sender's UMA address.
+            receiver_address: The receiver's UMA address.
+        """
+        if not self.is_uma_response():
+            return
+        compliance = self.get_compliance()
+        if compliance is None:
+            raise InvalidRequestException(
+                "compliance data is required for adding backing signatures"
+            )
+        backing_signatures = compliance.backing_signatures
+        if backing_signatures is None:
+            backing_signatures = []
+        payload = compliance.signable_payload(sender_address, receiver_address)
+        backing_signature = sign_payload(payload, signing_private_key)
+        backing_signatures.append(
+            BackingSignature(domain=domain, signature=backing_signature)
+        )
+        compliance.backing_signatures = backing_signatures
+        if self.payee_data is None:
+            self.payee_data = {}
+        self.payee_data["compliance"] = compliance.to_dict()
 
     def to_dict(self) -> Dict[str, Any]:
         resp = super().to_dict()

@@ -5,6 +5,7 @@ import json
 from typing import Any, Dict, List, Optional
 
 from uma.JSONable import JSONable
+from uma.protocol.backing_signature import BackingSignature
 from uma.protocol.kyc_status import KycStatus
 
 
@@ -38,6 +39,9 @@ class CompliancePayerData(JSONable):
 
     utxo_callback: str
     """The URL that the receiver will call to send UTXOs of the channels that receiver used to receive the payment the once it completes."""
+
+    backing_signatures: Optional[List[BackingSignature]] = None
+    """List of backing VASP signatures."""
 
     @classmethod
     def _get_field_name_overrides(cls) -> Dict[str, str]:

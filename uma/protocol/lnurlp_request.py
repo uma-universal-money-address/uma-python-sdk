@@ -1,9 +1,11 @@
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 from urllib.parse import urlencode
 
 from uma.exceptions import InvalidRequestException
+from uma.protocol.backing_signature import BackingSignature
+from uma.signing_utils import sign_payload
 from uma.type_utils import none_throws
 from uma.urls import is_domain_local
 
@@ -45,6 +47,11 @@ class LnurlpRequest:
     The version of the UMA protocol that the sender is using.
     """
 
+    backing_signatures: Optional[List[BackingSignature]] = None
+    """
+    List of backing VASP signatures.
+    """
+
     def encode_to_url(self) -> str:
         try:
             [identifier, host] = self.receiver_address.split("@")
@@ -55,6 +62,10 @@ class LnurlpRequest:
 
         scheme = "http" if is_domain_local(host) else "https"
         base_url = f"{scheme}://{host}/.well-known/lnurlp/{identifier}"
+        backing_signatures = [
+            f"{sig.domain}:{sig.signature}" for sig in (self.backing_signatures or [])
+        ]
+
         if not self.is_uma_request():
             return base_url
         params = {
@@ -65,6 +76,8 @@ class LnurlpRequest:
             "timestamp": int(none_throws(self.timestamp).timestamp()),
             "umaVersion": self.uma_version,
         }
+        if backing_signatures:
+            params["backingSignatures"] = ",".join(backing_signatures)
         return f"{base_url}?{urlencode(params)}"
 
     def signable_payload(self) -> bytes:
@@ -84,4 +97,21 @@ class LnurlpRequest:
             and self.nonce is not None
             and self.timestamp is not None
             and self.is_subject_to_travel_rule is not None
+        )
+
+    def append_backing_signature(self, signing_private_key: bytes, domain: str) -> None:
+        """
+        Appends a backing signature to the lnurlp request.
+
+        Args:
+            signing_private_key: The private key of the backing VASP which is used to sign the payload.
+            domain: The domain of the backing VASP that produced the signature. Public keys for this VASP
+            will be fetched from this domain at /.well-known/lnurlpubkey and used to verify the signature.
+        """
+        payload = self.signable_payload()
+        backing_signature = sign_payload(payload, signing_private_key)
+        if self.backing_signatures is None:
+            self.backing_signatures = []
+        self.backing_signatures.append(
+            BackingSignature(domain=domain, signature=backing_signature)
         )
