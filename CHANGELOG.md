@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.0
+
+- Add backing signature support for all request types.
+- Create SECURITY.md.
+
 ## 1.2.2
 
 - Sanitize the username part of the LNURLP URL to avoid XSS attacks.
