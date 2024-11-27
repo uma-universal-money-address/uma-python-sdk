@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.1
+
+- Export the `BackingSignature` class.
+
 ## 1.3.0
 
 - Add backing signature support for all request types.

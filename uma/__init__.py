@@ -2,6 +2,9 @@
 
 from uma.exceptions import *
 from uma.nonce_cache import InMemoryNonceCache, INonceCache, InvalidNonceException
+from uma.protocol.backing_signature import (
+    BackingSignature,
+)
 from uma.protocol.counterparty_data import (
     CounterpartyDataOption,
     CounterpartyDataOptions,
