@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.2
+
+- Export the `sign_payload` function.
+
 ## 1.3.1
 
 - Export the `BackingSignature` class.
