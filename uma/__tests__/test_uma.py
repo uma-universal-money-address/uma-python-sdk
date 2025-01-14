@@ -18,7 +18,7 @@ from uma.protocol.kyc_status import KycStatus
 from uma.protocol.payer_data import compliance_from_payer_data
 from uma.nonce_cache import InMemoryNonceCache
 from uma.protocol.pubkey_response import PubkeyResponse
-from uma.public_key_cache import InMemoryPublicKeyCache
+from uma.public_key_cache import InMemoryPublicKeyCache, IAsyncPublicKeyCache
 from uma.type_utils import none_throws
 from uma.protocol.post_tx_callback import UtxoWithAmount
 from uma.protocol.v0.payreq import PayRequest as V0PayRequest
@@ -33,6 +33,7 @@ from uma.uma import (
     create_pay_request,
     create_post_transaction_callback,
     fetch_public_key_for_vasp,
+    fetch_public_key_for_vasp_async,
     is_uma_lnurlp_query,
     parse_lnurlp_request,
     parse_lnurlp_response,
@@ -75,6 +76,30 @@ def test_fetch_public_key() -> None:
         mock.assert_called_once_with(url)
         assert pubkey_response == expected_pubkey
         assert cache.fetch_public_key_for_vasp(vasp_domain) == expected_pubkey
+
+
+@pytest.mark.asyncio
+async def test_fetch_public_key_async() -> None:
+    cache = TestAsyncPublicKeyCache()
+    vasp_domain = "vasp2.com"
+    timestamp = int((datetime.now(timezone.utc) + timedelta(hours=1)).timestamp())
+    expected_pubkey = PubkeyResponse(
+        signing_pubkey=secrets.token_bytes(16),
+        encryption_pubkey=secrets.token_bytes(16),
+        expiration_timestamp=datetime.fromtimestamp(timestamp, timezone.utc),
+        encryption_cert_chain=None,
+        signing_cert_chain=None,
+    )
+    url = "https://vasp2.com/.well-known/lnurlpubkey"
+
+    with patch(
+        "uma.uma._run_http_get_async",
+        return_value=json.dumps(expected_pubkey.to_dict()),
+    ) as mock:
+        pubkey_response = await fetch_public_key_for_vasp_async(vasp_domain, cache)
+        mock.assert_called_once_with(url)
+        assert pubkey_response == expected_pubkey
+        assert await cache.fetch_public_key_for_vasp(vasp_domain) == expected_pubkey
 
 
 def _create_pubkey_response(
@@ -1218,3 +1243,24 @@ def test_uma_invoice_signature() -> None:
 
     assert verify_uma_invoice_signature(invoice, pubkey_response) is None
     assert invoice.signature is not None
+
+
+class TestAsyncPublicKeyCache(IAsyncPublicKeyCache):
+    def __init__(self) -> None:
+        self._cache = InMemoryPublicKeyCache()
+
+    async def fetch_public_key_for_vasp(
+        self, vasp_domain: str
+    ) -> Optional[PubkeyResponse]:
+        return self._cache.fetch_public_key_for_vasp(vasp_domain)
+
+    async def add_public_key_for_vasp(
+        self, vasp_domain: str, public_key: PubkeyResponse
+    ) -> None:
+        self._cache.add_public_key_for_vasp(vasp_domain, public_key)
+
+    async def remove_public_key_for_vasp(self, vasp_domain: str) -> None:
+        self._cache.remove_public_key_for_vasp(vasp_domain)
+
+    async def clear(self) -> None:
+        self._cache.clear()

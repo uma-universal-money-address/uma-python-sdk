@@ -226,9 +226,9 @@ class PayReqResponse(JSONable):
             BackingSignature(domain=domain, signature=backing_signature)
         )
         compliance.backing_signatures = backing_signatures
-        if self.payee_data is None:
-            self.payee_data = {}
-        self.payee_data["compliance"] = compliance.to_dict()
+        payee_data = self.payee_data or {}
+        payee_data["compliance"] = compliance.to_dict()
+        self.payee_data = payee_data
 
     def to_dict(self) -> Dict[str, Any]:
         resp = super().to_dict()
