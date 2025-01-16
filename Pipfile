@@ -5,6 +5,7 @@ name = "pypi"
 
 [packages]
 aiohttp = "*"
+async-timeout = "*"
 bech32 = "*"
 coincurve = "*"
 cryptography = "*"
