@@ -148,7 +148,7 @@ def _run_http_get(url: str) -> str:
 
 async def _run_http_get_async(url: str) -> str:
     async with ClientSession() as session:
-        async with session.get(url) as response:  # pyre-ignore [16]
+        async with session.get(url) as response:
             response.raise_for_status()
             return await response.text()
 

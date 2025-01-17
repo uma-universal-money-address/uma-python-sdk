@@ -4,7 +4,8 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-aiohttp = "*"
+# Pin to avoid pyre issues:
+aiohttp = "<3.10"
 async-timeout = "*"
 bech32 = "*"
 coincurve = "*"
@@ -24,4 +25,5 @@ pytest = "*"
 pytest-asyncio = "*"
 tomli = "*"
 wrapt = "*"
+# Need to lock this version to avoid breaking older python versions:
 libcst = "==1.1.0"
