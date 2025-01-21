@@ -34,7 +34,11 @@ from uma.protocol.payreq_response import (
 )
 from uma.protocol.post_tx_callback import PostTransactionCallback, UtxoWithAmount
 from uma.protocol.pubkey_response import PubkeyResponse
-from uma.public_key_cache import InMemoryPublicKeyCache, IPublicKeyCache
+from uma.public_key_cache import (
+    InMemoryPublicKeyCache,
+    IPublicKeyCache,
+    IAsyncPublicKeyCache,
+)
 from uma.signing_utils import sign_payload
 from uma.type_utils import none_throws
 from uma.uma import (
@@ -47,6 +51,7 @@ from uma.uma import (
     create_uma_lnurlp_request_url,
     create_uma_lnurlp_response,
     fetch_public_key_for_vasp,
+    fetch_public_key_for_vasp_async,
     generate_nonce,
     get_vasp_domain_from_uma_address,
     is_uma_lnurlp_query,

@@ -10,6 +10,7 @@ from urllib.parse import parse_qs, urlparse, unquote
 from uuid import uuid4
 
 import requests
+from aiohttp import ClientSession
 from coincurve.ecdsa import cdata_to_der, der_to_cdata, signature_normalize
 from coincurve.keys import PublicKey
 from cryptography.exceptions import InvalidSignature
@@ -52,7 +53,7 @@ from uma.protocol.payreq_response import (
 )
 from uma.protocol.post_tx_callback import PostTransactionCallback, UtxoWithAmount
 from uma.protocol.pubkey_response import PubkeyResponse
-from uma.public_key_cache import IPublicKeyCache
+from uma.public_key_cache import IPublicKeyCache, IAsyncPublicKeyCache
 from uma.signing_utils import sign_payload
 from uma.type_utils import none_throws
 from uma.uma_invoice_creator import IUmaInvoiceCreator
@@ -83,6 +84,27 @@ def fetch_public_key_for_vasp(
         ) from ex
     public_key = PubkeyResponse.from_json(response)
     cache.add_public_key_for_vasp(vasp_domain, public_key)
+    return public_key
+
+
+async def fetch_public_key_for_vasp_async(
+    vasp_domain: str, cache: IAsyncPublicKeyCache
+) -> PubkeyResponse:
+    public_key = await cache.fetch_public_key_for_vasp(vasp_domain)
+    if public_key:
+        return public_key
+
+    scheme = "http://" if is_domain_local(vasp_domain) else "https://"
+    url = scheme + vasp_domain + "/.well-known/lnurlpubkey"
+    try:
+        response_text = await _run_http_get_async(url)
+    except Exception as ex:
+        raise InvalidRequestException(
+            f"Unable to fetch pubkey from {vasp_domain}. Make sure the vasp domain is correct."
+        ) from ex
+
+    public_key = PubkeyResponse.from_json(response_text)
+    await cache.add_public_key_for_vasp(vasp_domain, public_key)
     return public_key
 
 
@@ -122,6 +144,13 @@ def _run_http_get(url: str) -> str:
     response.raise_for_status()
     session.close()
     return response.text
+
+
+async def _run_http_get_async(url: str) -> str:
+    async with ClientSession() as session:
+        async with session.get(url) as response:
+            response.raise_for_status()
+            return await response.text()
 
 
 def generate_nonce() -> str:

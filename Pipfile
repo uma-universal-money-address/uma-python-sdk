@@ -4,6 +4,9 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
+# Pin to avoid pyre issues:
+aiohttp = "<3.10"
+async-timeout = "*"
 bech32 = "*"
 coincurve = "*"
 cryptography = "*"
@@ -19,6 +22,7 @@ isort = "==5.11.4"
 pylint = "*"
 pyre-check = "*"
 pytest = "*"
+pytest-asyncio = "*"
 tomli = "*"
 wrapt = "*"
 # Need to lock this version to avoid breaking older python versions:
