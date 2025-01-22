@@ -87,24 +87,24 @@ def fetch_public_key_for_vasp(
     return public_key
 
 
-async def fetch_public_key_for_vasp_async(
+async def gen_fetch_public_key_for_vasp(
     vasp_domain: str, cache: IAsyncPublicKeyCache
 ) -> PubkeyResponse:
-    public_key = await cache.fetch_public_key_for_vasp(vasp_domain)
+    public_key = await cache.gen_fetch_public_key_for_vasp(vasp_domain)
     if public_key:
         return public_key
 
     scheme = "http://" if is_domain_local(vasp_domain) else "https://"
     url = scheme + vasp_domain + "/.well-known/lnurlpubkey"
     try:
-        response_text = await _run_http_get_async(url)
+        response_text = await _gen_run_http_get(url)
     except Exception as ex:
         raise InvalidRequestException(
             f"Unable to fetch pubkey from {vasp_domain}. Make sure the vasp domain is correct."
         ) from ex
 
     public_key = PubkeyResponse.from_json(response_text)
-    await cache.add_public_key_for_vasp(vasp_domain, public_key)
+    await cache.gen_add_public_key_for_vasp(vasp_domain, public_key)
     return public_key
 
 
@@ -146,7 +146,7 @@ def _run_http_get(url: str) -> str:
     return response.text
 
 
-async def _run_http_get_async(url: str) -> str:
+async def _gen_run_http_get(url: str) -> str:
     async with ClientSession() as session:
         async with session.get(url) as response:
             response.raise_for_status()

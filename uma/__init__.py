@@ -51,7 +51,7 @@ from uma.uma import (
     create_uma_lnurlp_request_url,
     create_uma_lnurlp_response,
     fetch_public_key_for_vasp,
-    fetch_public_key_for_vasp_async,
+    gen_fetch_public_key_for_vasp,
     generate_nonce,
     get_vasp_domain_from_uma_address,
     is_uma_lnurlp_query,

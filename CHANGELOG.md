@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.4.0
+
+- Add async support for public key cache and fetching.
+
 ## 1.3.2
 
 - Export the `sign_payload` function.

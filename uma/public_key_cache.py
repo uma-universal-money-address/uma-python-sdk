@@ -60,21 +60,21 @@ class InMemoryPublicKeyCache(IPublicKeyCache):
 
 class IAsyncPublicKeyCache(ABC):
     @abstractmethod
-    async def fetch_public_key_for_vasp(
+    async def gen_fetch_public_key_for_vasp(
         self, vasp_domain: str
     ) -> Optional[PubkeyResponse]:
         pass
 
     @abstractmethod
-    async def add_public_key_for_vasp(
+    async def gen_add_public_key_for_vasp(
         self, vasp_domain: str, public_key: PubkeyResponse
     ) -> None:
         pass
 
     @abstractmethod
-    async def remove_public_key_for_vasp(self, vasp_domain: str) -> None:
+    async def gen_remove_public_key_for_vasp(self, vasp_domain: str) -> None:
         pass
 
     @abstractmethod
-    async def clear(self) -> None:
+    async def gen_clear(self) -> None:
         pass
