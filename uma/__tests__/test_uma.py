@@ -33,7 +33,7 @@ from uma.uma import (
     create_pay_request,
     create_post_transaction_callback,
     fetch_public_key_for_vasp,
-    fetch_public_key_for_vasp_async,
+    gen_fetch_public_key_for_vasp,
     is_uma_lnurlp_query,
     parse_lnurlp_request,
     parse_lnurlp_response,
@@ -93,13 +93,13 @@ async def test_fetch_public_key_async() -> None:
     url = "https://vasp2.com/.well-known/lnurlpubkey"
 
     with patch(
-        "uma.uma._run_http_get_async",
+        "uma.uma._gen_run_http_get",
         return_value=json.dumps(expected_pubkey.to_dict()),
     ) as mock:
-        pubkey_response = await fetch_public_key_for_vasp_async(vasp_domain, cache)
+        pubkey_response = await gen_fetch_public_key_for_vasp(vasp_domain, cache)
         mock.assert_called_once_with(url)
         assert pubkey_response == expected_pubkey
-        assert await cache.fetch_public_key_for_vasp(vasp_domain) == expected_pubkey
+        assert await cache.gen_fetch_public_key_for_vasp(vasp_domain) == expected_pubkey
 
 
 def _create_pubkey_response(
@@ -1249,18 +1249,18 @@ class TestAsyncPublicKeyCache(IAsyncPublicKeyCache):
     def __init__(self) -> None:
         self._cache = InMemoryPublicKeyCache()
 
-    async def fetch_public_key_for_vasp(
+    async def gen_fetch_public_key_for_vasp(
         self, vasp_domain: str
     ) -> Optional[PubkeyResponse]:
         return self._cache.fetch_public_key_for_vasp(vasp_domain)
 
-    async def add_public_key_for_vasp(
+    async def gen_add_public_key_for_vasp(
         self, vasp_domain: str, public_key: PubkeyResponse
     ) -> None:
         self._cache.add_public_key_for_vasp(vasp_domain, public_key)
 
-    async def remove_public_key_for_vasp(self, vasp_domain: str) -> None:
+    async def gen_remove_public_key_for_vasp(self, vasp_domain: str) -> None:
         self._cache.remove_public_key_for_vasp(vasp_domain)
 
-    async def clear(self) -> None:
+    async def gen_clear(self) -> None:
         self._cache.clear()
