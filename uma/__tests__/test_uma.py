@@ -15,7 +15,7 @@ from uma.protocol.counterparty_data import create_counterparty_data_options
 from uma.protocol.currency import Currency
 from uma.exceptions import InvalidNonceException, InvalidSignatureException
 from uma.protocol.kyc_status import KycStatus
-from uma.protocol.payer_data import compliance_from_payer_data
+from uma.protocol.payer_data import CompliancePayerData, compliance_from_payer_data
 from uma.nonce_cache import InMemoryNonceCache
 from uma.protocol.pubkey_response import PubkeyResponse
 from uma.public_key_cache import InMemoryPublicKeyCache, IAsyncPublicKeyCache
@@ -331,6 +331,21 @@ def test_parse_v0_pay_request() -> None:
 
     back_to_json = parsed_payreq.to_json()
     assert json.loads(back_to_json) == json.loads(v0_payreq.to_json())
+
+
+def test_parse_missing_compliance_utxos() -> None:
+    compliance_json = """
+    {
+        "kycStatus": "VERIFIED",
+        "utxoCallback": "utxoCallback",
+        "signature": "signature",
+        "signatureNonce": "1234",
+        "signatureTimestamp": 1234567,
+        "travelRuleFormat": null
+    }"""
+
+    compliance = CompliancePayerData.from_json(compliance_json)
+    assert compliance.utxos == []
 
 
 def test_parse_lnurl_pay_request() -> None:
