@@ -47,6 +47,15 @@ class CompliancePayerData(JSONable):
     def _get_field_name_overrides(cls) -> Dict[str, str]:
         return {"node_pubkey": "nodePubKey"}
 
+    @classmethod
+    def _from_dict(cls, json_dict: Dict[str, Any]) -> Dict[str, Any]:
+        data = super()._from_dict(json_dict)
+        # Some SDKs allow empty lists to be omitted from the JSON, so we need to add them back in.
+        # This will be reconciled in the next major version bump.
+        if "utxos" not in data or not data["utxos"]:
+            data["utxos"] = []
+        return data
+
 
 PayerData = Dict[str, Any]
 
