@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional
 
 from uma.JSONable import JSONable
 from uma.exceptions import InvalidRequestException
+from uma.generated.errors import ErrorCode
 from uma.protocol.backing_signature import BackingSignature
 from uma.protocol.payee_data import PayeeData
 from uma.signing_utils import sign_payload
@@ -215,7 +216,8 @@ class PayReqResponse(JSONable):
         compliance = self.get_compliance()
         if compliance is None:
             raise InvalidRequestException(
-                "compliance data is required for adding backing signatures"
+                "compliance data is required for adding backing signatures",
+                ErrorCode.MISSING_REQUIRED_UMA_PARAMETERS,
             )
         backing_signatures = compliance.backing_signatures
         if backing_signatures is None:

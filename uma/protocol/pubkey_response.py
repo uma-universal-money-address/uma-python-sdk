@@ -7,6 +7,7 @@ from cryptography.hazmat.primitives import serialization
 
 from uma.cert_utils import get_pubkey
 from uma.exceptions import InvalidRequestException
+from uma.generated.errors import ErrorCode
 from uma.JSONable import JSONable
 
 
@@ -41,7 +42,10 @@ class PubkeyResponse(JSONable):
             return get_pubkey(self.signing_cert_chain[0])
         if self.signing_pubkey:
             return self.signing_pubkey
-        raise InvalidRequestException("Signing pubkey is required for uma.")
+        raise InvalidRequestException(
+            "Signing pubkey is required for uma.",
+            ErrorCode.MISSING_REQUIRED_UMA_PARAMETERS,
+        )
 
     def get_encryption_pubkey(self) -> bytes:
         # the first cert in the chain is the leaf (sender's) cert
@@ -49,7 +53,10 @@ class PubkeyResponse(JSONable):
             return get_pubkey(self.encryption_cert_chain[0])
         if self.encryption_pubkey:
             return self.encryption_pubkey
-        raise InvalidRequestException("Encryption pubkey is required for uma.")
+        raise InvalidRequestException(
+            "Encryption pubkey is required for uma.",
+            ErrorCode.MISSING_REQUIRED_UMA_PARAMETERS,
+        )
 
     def to_dict(self) -> Dict[str, Any]:
         json_dict: Dict[str, Any] = {}

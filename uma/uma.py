@@ -24,6 +24,7 @@ from uma.exceptions import (
     InvalidSignatureException,
     UnsupportedVersionException,
 )
+from uma.generated.errors import ErrorCode
 from uma.nonce_cache import INonceCache
 from uma.protocol.counterparty_data import (
     CounterpartyDataOption,
@@ -80,7 +81,8 @@ def fetch_public_key_for_vasp(
         response = _run_http_get(url)
     except Exception as ex:  # pylint: disable=broad-except
         raise InvalidRequestException(
-            f"Unable to fetch pubkey from {vasp_domain}. Make sure the vasp domain is correct."
+            f"Unable to fetch pubkey from {vasp_domain}. Make sure the vasp domain is correct.",
+            ErrorCode.COUNTERPARTY_PUBKEY_FETCH_ERROR,
         ) from ex
     public_key = PubkeyResponse.from_json(response)
     cache.add_public_key_for_vasp(vasp_domain, public_key)
@@ -100,7 +102,8 @@ async def gen_fetch_public_key_for_vasp(
         response_text = await _gen_run_http_get(url)
     except Exception as ex:
         raise InvalidRequestException(
-            f"Unable to fetch pubkey from {vasp_domain}. Make sure the vasp domain is correct."
+            f"Unable to fetch pubkey from {vasp_domain}. Make sure the vasp domain is correct.",
+            ErrorCode.COUNTERPARTY_PUBKEY_FETCH_ERROR,
         ) from ex
 
     public_key = PubkeyResponse.from_json(response_text)
@@ -163,11 +166,15 @@ def verify_pay_request_signature(
     if not request.payer_data:
         raise InvalidRequestException(
             "UMA requires payer data in request. For regular LNURL requests, "
-            + "payer data is optional and signatures should not be checked."
+            + "payer data is optional and signatures should not be checked.",
+            ErrorCode.MISSING_REQUIRED_UMA_PARAMETERS,
         )
     compliance_data = compliance_from_payer_data(request.payer_data)
     if not compliance_data:
-        raise InvalidRequestException("Missing compliance data in request")
+        raise InvalidRequestException(
+            "Missing compliance data in request",
+            ErrorCode.MISSING_REQUIRED_UMA_PARAMETERS,
+        )
 
     nonce_cache.check_and_save_nonce(
         compliance_data.signature_nonce,
@@ -186,11 +193,15 @@ def verify_pay_request_backing_signatures(
     if not request.payer_data:
         raise InvalidRequestException(
             "UMA requires payer data in request. For regular LNURL requests, "
-            + "payer data is optional and signatures should not be checked."
+            + "payer data is optional and signatures should not be checked.",
+            ErrorCode.MISSING_REQUIRED_UMA_PARAMETERS,
         )
     compliance = compliance_from_payer_data(request.payer_data)
     if not compliance:
-        raise InvalidRequestException("Missing compliance data in request")
+        raise InvalidRequestException(
+            "Missing compliance data in request",
+            ErrorCode.MISSING_REQUIRED_UMA_PARAMETERS,
+        )
 
     backing_signatures = compliance.backing_signatures
     if backing_signatures:
@@ -324,7 +335,8 @@ def create_pay_request(
     """
     if uma_major_version == 0 and not is_amount_in_receiving_currency:
         raise InvalidRequestException(
-            "UMA v0 does not support sending amounts in msats. Please set is_amount_in_receiving_currency to True."
+            "UMA v0 does not support sending amounts in msats. Please set is_amount_in_receiving_currency to True.",
+            ErrorCode.INTERNAL_ERROR,
         )
 
     sending_currency_code = (
@@ -414,15 +426,21 @@ def parse_lnurlp_request(url: str) -> LnurlpRequest:
     has_all_uma_fields = all(required_uma_fields.values())
     if has_an_uma_field and not has_all_uma_fields:
         raise InvalidRequestException(
-            "Missing uma query parameters: vaspDomain, signature, nonce, uma_version, and timestamp are required."
+            "Missing uma query parameters: vaspDomain, signature, nonce, uma_version, and timestamp are required.",
+            ErrorCode.MISSING_REQUIRED_UMA_PARAMETERS,
         )
 
     paths = parsed_url.path.split("/")
     if len(paths) != 4 or paths[1] != ".well-known" or paths[2] != "lnurlp":
-        raise InvalidRequestException("Invalid request path.")
+        raise InvalidRequestException(
+            "Invalid request path.", ErrorCode.PARSE_LNURLP_REQUEST_ERROR
+        )
 
     if not re.match(r"^[\$a-zA-Z0-9@._\-\+]+$", paths[3]):
-        raise InvalidRequestException("Invalid characters in receiver address.")
+        raise InvalidRequestException(
+            "Invalid characters in receiver address.",
+            ErrorCode.PARSE_LNURLP_REQUEST_ERROR,
+        )
 
     receiver_address = paths[3] + "@" + parsed_url.netloc
     is_subject_to_travel_rule = (
@@ -438,12 +456,16 @@ def parse_lnurlp_request(url: str) -> LnurlpRequest:
                 decoded_pair = unquote(pair)
             except TypeError as ex:
                 raise InvalidRequestException(
-                    "Invalid backing signature format"
+                    "Invalid backing signature format",
+                    ErrorCode.PARSE_LNURLP_REQUEST_ERROR,
                 ) from ex
 
             last_colon_index = decoded_pair.rfind(":")
             if last_colon_index == -1:
-                raise InvalidRequestException("Invalid backing signature format")
+                raise InvalidRequestException(
+                    "Invalid backing signature format",
+                    ErrorCode.PARSE_LNURLP_REQUEST_ERROR,
+                )
 
             signatures.append(
                 BackingSignature(
@@ -490,7 +512,8 @@ def verify_uma_lnurlp_query_signature(
     """
     if not request.signature or not request.nonce or not request.timestamp:
         raise InvalidRequestException(
-            "Missing uma query parameters: signature, nonce and timestamp are required."
+            "Missing uma query parameters: signature, nonce and timestamp are required.",
+            ErrorCode.MISSING_REQUIRED_UMA_PARAMETERS,
         )
 
     nonce_cache.check_and_save_nonce(request.nonce, request.timestamp)
@@ -599,7 +622,8 @@ def create_pay_req_response(
         for field, value in required_uma_fields.items():
             if value is None:
                 raise InvalidRequestException(
-                    f"Missing required field {field} for UMA request."
+                    f"Missing required field {field} for UMA request.",
+                    ErrorCode.MISSING_REQUIRED_UMA_PARAMETERS,
                 )
 
     sending_currency = request.sending_amount_currency_code
@@ -630,7 +654,10 @@ def create_pay_req_response(
     )
     payer_identifier = request.payer_data["identifier"] if request.payer_data else None
     if not payer_identifier and request.is_uma_request():
-        raise InvalidRequestException("Missing payer identifier in request")
+        raise InvalidRequestException(
+            "Missing payer identifier in request",
+            ErrorCode.MISSING_MANDATORY_PAYER_DATA,
+        )
     if request.is_uma_request():
         payee_data = payee_data or {}
         payee_data["compliance"] = _create_compliance_payee_data(
@@ -702,15 +729,20 @@ def verify_pay_req_response_signature(
     payee_data = response.payee_data
     if not payee_data:
         raise InvalidRequestException(
-            "Missing payee data in response. Cannot verify signature."
+            "Missing payee data in response. Cannot verify signature.",
+            ErrorCode.MISSING_REQUIRED_UMA_PARAMETERS,
         )
     compliance_data = response.get_compliance()
     if not compliance_data:
-        raise InvalidRequestException("Missing compliance data in response")
+        raise InvalidRequestException(
+            "Missing compliance data in response",
+            ErrorCode.MISSING_REQUIRED_UMA_PARAMETERS,
+        )
 
     if response.uma_major_version != 1:
         raise InvalidRequestException(
-            "Signatures were added to payreq responses in UMA v1. This response is from an UMA v0 receiving VASP."
+            "Signatures were added to payreq responses in UMA v1. This response is from an UMA v0 receiving VASP.",
+            ErrorCode.INTERNAL_ERROR,
         )
 
     payee_data_identifier = payee_data.get("identifier")
@@ -719,7 +751,8 @@ def verify_pay_req_response_signature(
         and payee_data_identifier.lower() != receiver_address.lower()
     ):
         raise InvalidRequestException(
-            f"Payee data identifier {payee_data_identifier} does not match receiver address {receiver_address}."
+            f"Payee data identifier {payee_data_identifier} does not match receiver address {receiver_address}.",
+            ErrorCode.INVALID_SIGNATURE,
         )
     if payee_data_identifier is None:
         payee_data_identifier = receiver_address
@@ -744,15 +777,20 @@ def verify_pay_req_response_backing_signatures(
     payee_data = response.payee_data
     if not payee_data:
         raise InvalidRequestException(
-            "Missing payee data in response. Cannot verify signature."
+            "Missing payee data in response. Cannot verify signature.",
+            ErrorCode.MISSING_REQUIRED_UMA_PARAMETERS,
         )
     compliance_data = response.get_compliance()
     if not compliance_data:
-        raise InvalidRequestException("Missing compliance data in response")
+        raise InvalidRequestException(
+            "Missing compliance data in response",
+            ErrorCode.MISSING_REQUIRED_UMA_PARAMETERS,
+        )
 
     if response.uma_major_version != 1:
         raise InvalidRequestException(
-            "Signatures were added to payreq responses in UMA v1. This response is from an UMA v0 receiving VASP."
+            "Signatures were added to payreq responses in UMA v1. This response is from an UMA v0 receiving VASP.",
+            ErrorCode.INTERNAL_ERROR,
         )
 
     payee_data_identifier = payee_data.get("identifier")
@@ -761,7 +799,8 @@ def verify_pay_req_response_backing_signatures(
         and payee_data_identifier.lower() != receiver_address.lower()
     ):
         raise InvalidRequestException(
-            f"Payee data identifier {payee_data_identifier} does not match receiver address {receiver_address}."
+            f"Payee data identifier {payee_data_identifier} does not match receiver address {receiver_address}.",
+            ErrorCode.INVALID_SIGNATURE,
         )
 
     backing_signatures = compliance_data.backing_signatures
@@ -797,7 +836,8 @@ def create_uma_lnurlp_response(
     if not request.is_uma_request():
         raise InvalidRequestException(
             "The request is not a UMA request. Cannot create an UMA response. "
-            + "Just create an LnurlpResponse directly instead."
+            + "Just create an LnurlpResponse directly instead.",
+            ErrorCode.INTERNAL_ERROR,
         )
     uma_version = select_lower_version(
         none_throws(request.uma_version), UMA_PROTOCOL_VERSION
@@ -866,7 +906,10 @@ def verify_uma_lnurlp_response_signature(
     nonce_cache: INonceCache,
 ) -> None:
     if not response.compliance:
-        raise InvalidRequestException("Missing compliance data in response")
+        raise InvalidRequestException(
+            "Missing compliance data in response",
+            ErrorCode.MISSING_REQUIRED_UMA_PARAMETERS,
+        )
 
     nonce_cache.check_and_save_nonce(
         response.compliance.signature_nonce,
@@ -893,7 +936,10 @@ def verify_uma_lnurlp_response_backing_signatures(
         or implement your own persistent cache with any storage type.
     """
     if not response.compliance:
-        raise InvalidRequestException("Missing compliance data in response")
+        raise InvalidRequestException(
+            "Missing compliance data in response",
+            ErrorCode.MISSING_REQUIRED_UMA_PARAMETERS,
+        )
 
     backing_signatures = response.compliance.backing_signatures
     if not backing_signatures:
@@ -984,7 +1030,8 @@ def verify_post_transaction_callback_signature(
         or not callback.signature_timestamp
     ):
         raise InvalidRequestException(
-            "Missing post transaction callback signature, nonce, or timestamp. Is this an UMA v0 callback? If so, don't verify the signature."
+            "Missing post transaction callback signature, nonce, or timestamp. Is this an UMA v0 callback? If so, don't verify the signature.",
+            ErrorCode.MISSING_REQUIRED_UMA_PARAMETERS,
         )
     nonce_cache.check_and_save_nonce(
         callback.signature_nonce,
@@ -1003,7 +1050,9 @@ def _parse_timestamp(
     try:
         return datetime.fromtimestamp(timestamp, timezone.utc)
     except ValueError as ex:
-        raise InvalidRequestException("Invalid timestamp in request.") from ex
+        raise InvalidRequestException(
+            "Invalid timestamp in request.", ErrorCode.INVALID_TIMESTAMP
+        ) from ex
 
 
 def create_uma_invoice(

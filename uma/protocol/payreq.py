@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
 from uma.exceptions import InvalidRequestException
+from uma.generated.errors import ErrorCode
 from uma.JSONable import JSONable
 from uma.protocol.backing_signature import BackingSignature
 from uma.protocol.counterparty_data import CounterpartyDataOptions
@@ -80,11 +81,14 @@ class PayRequest(JSONable):
 
     def signable_payload(self) -> bytes:
         if not self.payer_data:
-            raise InvalidRequestException("payer_data is required.")
+            raise InvalidRequestException(
+                "payer_data is required.", ErrorCode.MISSING_REQUIRED_UMA_PARAMETERS
+            )
         payer_identifier = self.payer_data.get("identifier")
         if not payer_identifier:
             raise InvalidRequestException(
-                "identifier is required in payerdata for uma."
+                "identifier is required in payerdata for uma.",
+                ErrorCode.MISSING_REQUIRED_UMA_PARAMETERS,
             )
         payloads = [payer_identifier]
         compliance = compliance_from_payer_data(none_throws(self.payer_data))
@@ -172,7 +176,9 @@ class PayRequest(JSONable):
         cls: "type[PayRequest]", params: Dict[str, str]
     ) -> "PayRequest":
         if not params.get("amount"):
-            raise InvalidRequestException("amount is required.")
+            raise InvalidRequestException(
+                "amount is required.", ErrorCode.MISSING_REQUIRED_UMA_PARAMETERS
+            )
         parts = params["amount"].split(".")
         sending_amount_currency_code = parts[1] if len(parts) == 2 else None
         amount = parts[0]
@@ -202,11 +208,14 @@ class PayRequest(JSONable):
             return
         payer_data = self.payer_data
         if not payer_data:
-            raise InvalidRequestException("payer_data is required.")
+            raise InvalidRequestException(
+                "payer_data is required.", ErrorCode.MISSING_REQUIRED_UMA_PARAMETERS
+            )
         compliance = compliance_from_payer_data(payer_data)
         if not compliance:
             raise InvalidRequestException(
-                "compliance data is required for backing signatures"
+                "compliance data is required for backing signatures",
+                ErrorCode.MISSING_REQUIRED_UMA_PARAMETERS,
             )
         payload = self.signable_payload()
         backing_signature = sign_payload(payload, signing_private_key)

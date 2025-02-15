@@ -3,6 +3,7 @@ from typing import Dict, List, Optional
 from uma.JSONable import JSONable
 
 from uma.exceptions import InvalidRequestException
+from uma.generated.errors import ErrorCode
 from uma.protocol.backing_signature import BackingSignature
 from uma.protocol.counterparty_data import CounterpartyDataOptions
 from uma.protocol.currency import Currency
@@ -121,7 +122,8 @@ class LnurlpResponse(JSONable):
     def signable_payload(self) -> bytes:
         if not self.compliance:
             raise InvalidRequestException(
-                "compliance field is required for signing or verifying."
+                "compliance field is required for signing or verifying.",
+                ErrorCode.MISSING_REQUIRED_UMA_PARAMETERS,
             )
         signable = "|".join(
             [
@@ -146,7 +148,8 @@ class LnurlpResponse(JSONable):
         compliance = self.compliance
         if not compliance:
             raise InvalidRequestException(
-                "compliance field is required for adding backing signatures."
+                "compliance field is required for adding backing signatures.",
+                ErrorCode.MISSING_REQUIRED_UMA_PARAMETERS,
             )
         payload = self.signable_payload()
         backing_signature = sign_payload(payload, signing_private_key)
