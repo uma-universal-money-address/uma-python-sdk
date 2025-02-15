@@ -1,6 +1,7 @@
 # Copyright ©, 2022-present, Lightspark Group, Inc. - All Rights Reserved
 
 from uma.exceptions import *
+from uma.generated.errors import ErrorCode
 from uma.nonce_cache import InMemoryNonceCache, INonceCache, InvalidNonceException
 from uma.protocol.backing_signature import (
     BackingSignature,
