@@ -4,6 +4,7 @@ from typing import Optional, List
 from urllib.parse import urlencode
 
 from uma.exceptions import InvalidRequestException
+from uma.generated.errors import ErrorCode
 from uma.protocol.backing_signature import BackingSignature
 from uma.signing_utils import sign_payload
 from uma.type_utils import none_throws
@@ -83,7 +84,8 @@ class LnurlpRequest:
     def signable_payload(self) -> bytes:
         if not self.nonce or not self.timestamp:
             raise InvalidRequestException(
-                "nonce and timestamp are required for signing. This is not an UMA request."
+                "nonce and timestamp are required for signing. This is not an UMA request.",
+                ErrorCode.MISSING_REQD_UMA_PARAMETERS,
             )
         signable = "|".join(
             [self.receiver_address, self.nonce, str(int(self.timestamp.timestamp()))]
