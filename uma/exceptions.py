@@ -31,3 +31,7 @@ class InvalidSignatureException(Exception):
 
 class InvalidNonceException(Exception):
     pass
+
+
+class UmaAddressNotFoundException(Exception):
+    pass
