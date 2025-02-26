@@ -2,9 +2,8 @@ from typing import List
 from cryptography import x509
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec
-from uma.exceptions import (
-    InvalidRequestException,
-)
+from uma.exceptions import InvalidRequestException
+from uma.generated.errors import ErrorCode
 
 
 def get_pubkey(cert: x509.Certificate) -> bytes:
@@ -12,9 +11,15 @@ def get_pubkey(cert: x509.Certificate) -> bytes:
     pubkey = cert.public_key()
 
     if not isinstance(pubkey, ec.EllipticCurvePublicKey):
-        raise InvalidRequestException("Public key is not an Elliptic Curve public key.")
+        raise InvalidRequestException(
+            "Public key is not an Elliptic Curve public key.",
+            ErrorCode.CERT_CHAIN_INVALID,
+        )
     if pubkey.curve.name != "secp256k1":
-        raise InvalidRequestException("Public key is not a valid SECP256K1 public key.")
+        raise InvalidRequestException(
+            "Public key is not a valid SECP256K1 public key.",
+            ErrorCode.CERT_CHAIN_INVALID,
+        )
 
     return pubkey.public_bytes(
         encoding=serialization.Encoding.DER,
@@ -27,5 +32,5 @@ def get_x509_certs(cert_chain: str) -> List[x509.Certificate]:
         return x509.load_pem_x509_certificates(cert_chain.encode())
     except ValueError as exc:
         raise InvalidRequestException(
-            "Unable to parse certificate as valid X.509."
+            "Unable to parse certificate as valid X.509.", ErrorCode.CERT_CHAIN_INVALID
         ) from exc
