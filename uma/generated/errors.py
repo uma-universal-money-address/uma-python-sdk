@@ -79,10 +79,8 @@ class ErrorCode(Enum):
     AMOUNT_OUT_OF_RANGE = ErrorDetails(code="AMOUNT_OUT_OF_RANGE", http_status_code=400)
     """The amount provided is not within the min/max range"""
 
-    UNSUPPORTED_CURRENCY = ErrorDetails(
-        code="UNSUPPORTED_CURRENCY", http_status_code=400
-    )
-    """The currency provided is not supported"""
+    INVALID_CURRENCY = ErrorDetails(code="INVALID_CURRENCY", http_status_code=400)
+    """The currency provided is not valid or supported"""
 
     SENDER_NOT_ACCEPTED = ErrorDetails(code="SENDER_NOT_ACCEPTED", http_status_code=400)
     """Payments from this sender are not accepted"""
@@ -98,11 +96,62 @@ class ErrorCode(Enum):
     """Receiver does not recognize the mandatory payee data key"""
 
     PARSE_UTXO_CALLBACK_ERROR = ErrorDetails(
-        code="PARSE_UTXO_CALLBACK_ERROR", http_status_code=500
+        code="PARSE_UTXO_CALLBACK_ERROR", http_status_code=400
     )
     """Error parsing the utxo callback"""
 
-    SENDING_DOMAIN_NOT_ALLOWED = ErrorDetails(
-        code="SENDING_DOMAIN_NOT_ALLOWED", http_status_code=403
+    COUNTERPARTY_NOT_ALLOWED = ErrorDetails(
+        code="COUNTERPARTY_NOT_ALLOWED", http_status_code=403
     )
-    """The receiving party does not accept payments from this sending domain"""
+    """This party does not accept payments with the counterparty"""
+
+    PARSE_LNURLP_RESPONSE_ERROR = ErrorDetails(
+        code="PARSE_LNURLP_RESPONSE_ERROR", http_status_code=400
+    )
+    """Error parsing the LNURLP response"""
+
+    PARSE_PAYREQ_RESPONSE_ERROR = ErrorDetails(
+        code="PARSE_PAYREQ_RESPONSE_ERROR", http_status_code=400
+    )
+    """Error parsing the payreq response"""
+
+    LNURLP_REQUEST_FAILED = ErrorDetails(
+        code="LNURLP_REQUEST_FAILED", http_status_code=424
+    )
+    """The LNURLP request failed"""
+
+    PAYREQ_REQUEST_FAILED = ErrorDetails(
+        code="PAYREQ_REQUEST_FAILED", http_status_code=424
+    )
+    """The payreq request failed"""
+
+    NO_COMPATIBLE_UMA_VERSION = ErrorDetails(
+        code="NO_COMPATIBLE_UMA_VERSION", http_status_code=424
+    )
+    """No compatible UMA protocol version found between sender and receiver"""
+
+    INVALID_INVOICE = ErrorDetails(code="INVALID_INVOICE", http_status_code=400)
+    """The provided invoice is invalid"""
+
+    INVOICE_EXPIRED = ErrorDetails(code="INVOICE_EXPIRED", http_status_code=400)
+    """The invoice has expired"""
+
+    QUOTE_EXPIRED = ErrorDetails(code="QUOTE_EXPIRED", http_status_code=400)
+    """The quote has expired"""
+
+    INVALID_INPUT = ErrorDetails(code="INVALID_INPUT", http_status_code=400)
+    """The provided input is invalid"""
+
+    INVALID_REQUEST_FORMAT = ErrorDetails(
+        code="INVALID_REQUEST_FORMAT", http_status_code=400
+    )
+    """The request format is invalid"""
+
+    FORBIDDEN = ErrorDetails(code="FORBIDDEN", http_status_code=403)
+    """This action is not permitted for this user"""
+
+    NOT_IMPLEMENTED = ErrorDetails(code="NOT_IMPLEMENTED", http_status_code=501)
+    """This functionality is not implemented"""
+
+    QUOTE_NOT_FOUND = ErrorDetails(code="QUOTE_NOT_FOUND", http_status_code=404)
+    """The requested quote was not found"""
