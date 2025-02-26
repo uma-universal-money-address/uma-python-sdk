@@ -49,8 +49,8 @@ class InvalidRequestException(UmaException):
 
 
 class InvalidCurrencyException(UmaException):
-    def __init__(self, reason: str = "Unsupported currency"):
-        super().__init__(reason, ErrorCode.UNSUPPORTED_CURRENCY)
+    def __init__(self, reason: str = "Invalid currency"):
+        super().__init__(reason, ErrorCode.INVALID_CURRENCY)
 
 
 class InvalidSignatureException(UmaException):

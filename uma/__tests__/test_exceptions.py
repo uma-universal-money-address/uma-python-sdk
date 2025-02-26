@@ -45,7 +45,7 @@ def test_invalid_currency_exception():
 
     assert json_output["status"] == "ERROR"
     assert json_output["reason"] == "Invalid currency code"
-    assert json_output["code"] == "UNSUPPORTED_CURRENCY"
+    assert json_output["code"] == "INVALID_CURRENCY"
     assert exc.to_http_status_code() == 400
 
 
