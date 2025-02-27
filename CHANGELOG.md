@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.5.0
+
+- Add UmaException base class with standardized error codes and HTTP status codes for consistent error handling across UMA.
+
 ## 1.4.0
 
 - Add async support for public key cache and fetching.
