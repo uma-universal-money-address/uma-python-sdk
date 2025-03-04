@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.5.1
+
+- Provide default values in the InvalidRequestException constructor.
+
 ## 1.5.0
 
 - Add UmaException base class with standardized error codes and HTTP status codes for consistent error handling across UMA.

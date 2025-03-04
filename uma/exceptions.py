@@ -45,7 +45,12 @@ class UnsupportedVersionException(UmaException):
 
 
 class InvalidRequestException(UmaException):
-    pass
+    def __init__(
+        self,
+        reason: str = "Invalid request",
+        error_code: ErrorCode = ErrorCode.INVALID_REQUEST_FORMAT,
+    ):
+        super().__init__(reason, error_code)
 
 
 class InvalidCurrencyException(UmaException):
