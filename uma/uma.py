@@ -333,6 +333,64 @@ def create_pay_request(
             the comment must be less than or equal to the value of `commentAllowed`.
         invoice_uuid: if the PayRequest is for an UMA invoice, this should be the UUID of the invoice.
     """
+    payer_data = create_payer_data(
+        identifier=payer_identifier,
+        name=payer_name,
+        email=payer_email,
+        compliance=payer_compliance,
+    )
+    return create_pay_request_with_payer_data(
+        receiving_currency_code=receiving_currency_code,
+        amount=amount,
+        is_amount_in_receiving_currency=is_amount_in_receiving_currency,
+        payer_identifier=payer_identifier,
+        uma_major_version=uma_major_version,
+        payer_compliance=payer_compliance,
+        payer_data=payer_data,
+        requested_payee_data=requested_payee_data,
+        comment=comment,
+        invoice_uuid=invoice_uuid,
+    )
+
+
+def create_pay_request_with_payer_data(
+    receiving_currency_code: str,
+    amount: int,
+    is_amount_in_receiving_currency: bool,
+    payer_identifier: str,
+    uma_major_version: int,
+    payer_compliance: Optional[CompliancePayerData],
+    payer_data: Optional[PayerData] = None,
+    requested_payee_data: Optional[CounterpartyDataOptions] = None,
+    comment: Optional[str] = None,
+    invoice_uuid: Optional[str] = None,
+) -> PayRequest:
+    """
+    Creates a payreq request object using the provided payer data.
+
+    Args:
+        receiving_currency_code: The code of the currency that the receiver will receive for this
+            payment.
+        amount: The amount that the receiver will receive in either the smallest unit of the
+            receiving currency (if is_amount_in_receiving_currency is True), or in msats (if false).
+        is_amount_in_receiving_currency: Whether the amount field is specified in the smallest unit
+            of the receiving currency or in msats (if false).
+        payer_identifier: The UMA address of the sender. For example, $alice@vasp.com.
+        uma_major_version: The major version of the UMA protocol that this currency adheres to.
+            If non-UMA, this version is still relevant for which LUD-21 spec to follow. For the older
+            LUD-21 spec, this should be 0. For the newer LUD-21 spec, this should be 1.
+        payer_compliance: The compliance data of the sender. This is REQUIRED for UMA payments,
+            but not for regular LNURL payments.
+        payer_data: The payer data of the sender. This is REQUIRED for UMA payments. You should
+            ensure that the payer data provided meets the minimum requirements of the counterparty
+            (as specified in the LNURLp response under the mandatory requested_payee_data).
+        requested_payee_data: the additional data about the payee which is requested by the sending
+            VASP, if any.
+        comment: A comment that the sender wants to add to the payment. This can only be included
+            if the receiver included the `commentAllowed` field in the lnurlp response. The length of
+            the comment must be less than or equal to the value of `commentAllowed`.
+        invoice_uuid: if the PayRequest is for an UMA invoice, this should be the UUID of the invoice.
+    """
     if uma_major_version == 0 and not is_amount_in_receiving_currency:
         raise InvalidRequestException(
             "UMA v0 does not support sending amounts in msats. Please set is_amount_in_receiving_currency to True.",
@@ -342,16 +400,15 @@ def create_pay_request(
     sending_currency_code = (
         receiving_currency_code if is_amount_in_receiving_currency else None
     )
+    payer_data = payer_data or {}
+    if payer_compliance is not None:
+        payer_data["compliance"] = payer_compliance.to_dict()
+    payer_data["identifier"] = payer_identifier
     return PayRequest(
         receiving_currency_code=receiving_currency_code,
         sending_amount_currency_code=sending_currency_code,
         amount=amount,
-        payer_data=create_payer_data(
-            identifier=payer_identifier,
-            name=payer_name,
-            email=payer_email,
-            compliance=payer_compliance,
-        ),
+        payer_data=payer_data,
         requested_payee_data=requested_payee_data,
         comment=comment,
         uma_major_version=uma_major_version,

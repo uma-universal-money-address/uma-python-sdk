@@ -46,6 +46,7 @@ from uma.uma import (
     create_compliance_payer_data,
     create_pay_req_response,
     create_pay_request,
+    create_pay_request_with_payer_data,
     create_post_transaction_callback,
     create_pubkey_response,
     create_uma_invoice,
