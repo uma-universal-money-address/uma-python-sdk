@@ -392,6 +392,7 @@ def test_lnurlp_request_url_create_and_parse() -> None:
 class DummyUmaInvoiceCreator(IUmaInvoiceCreator):
     DUMMY_INVOICE = "DUMMY_INVOICE"
     last_requested_invoice_amount = 0
+    last_metadata = ""
 
     def create_uma_invoice(
         self,
@@ -400,6 +401,7 @@ class DummyUmaInvoiceCreator(IUmaInvoiceCreator):
         receiver_identifier: Optional[str],
     ) -> str:
         self.last_requested_invoice_amount = amount_msats
+        self.last_metadata = metadata
         return self.DUMMY_INVOICE
 
 
@@ -435,6 +437,7 @@ def test_pay_req_response_create_and_parse() -> None:
             payer_node_pubkey=node_pubkey,
             utxo_callback=sender_utxo_callback,
         ),
+        invoice_uuid="c7c07fec-cf00-431c-916f-6c13fc4b69f9",
     )
 
     msats_per_currency_unit = 24_150
@@ -461,6 +464,10 @@ def test_pay_req_response_create_and_parse() -> None:
 
     assert response == parse_pay_req_response(response.to_json())
     assert response.encoded_invoice == invoice_creator.DUMMY_INVOICE
+    assert (
+        invoice_creator.last_metadata
+        == _create_metadata_with_invoice_uuid() + json.dumps(pay_request.payer_data)
+    )
     compliance = response.get_compliance()
     assert compliance is not None
     assert compliance.utxo_callback == receiver_utxo_callback
@@ -723,6 +730,15 @@ def _create_metadata() -> str:
     metadata = [
         ["text/plain", "Pay to vasp2.com user $bob"],
         ["text/identifier", "bob@vasp2.com"],
+    ]
+    return json.dumps(metadata)
+
+
+def _create_metadata_with_invoice_uuid() -> str:
+    metadata = [
+        ["text/plain", "Pay to vasp2.com user $bob"],
+        ["text/identifier", "bob@vasp2.com"],
+        ["text/uma-invoice", "c7c07fec-cf00-431c-916f-6c13fc4b69f9"],
     ]
     return json.dumps(metadata)
 
