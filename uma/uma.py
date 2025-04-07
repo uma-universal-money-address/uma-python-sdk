@@ -641,7 +641,7 @@ def create_pay_req_response(
     Args:
         request: the uma pay request.This will be used to sign the request.
         invoice_creator: the object that will create the invoice. In practice, this is usually a `services.LightsparkClient`.
-        metadata: the metadata that will be added to the invoice's metadata hash field.
+        metadata: the metadata that will be added to the invoice's metadata hash field. This should be a JSON array as specified in LUD-06.
         receiving_currency_code: the code of the currency that the receiver will receive for this payment. Required for UMA transactions.
         receiving_currency_decimals: the number of decimal places in the specified currency. For example, USD has 2 decimal
             places. This should align with the decimals field returned for the chosen currency in the LNURLP response. Required for UMA transactions.
@@ -698,11 +698,13 @@ def create_pay_req_response(
         or receiver_fees_msats is None
         else floor((request.amount - receiver_fees_msats) / msats_per_currency_unit)
     )
-    if request.payer_data:
-        metadata += json.dumps(request.payer_data)
 
     if request.invoice_uuid:
         metadata = _add_invoice_uuid_to_metadata(metadata, request.invoice_uuid)
+
+    # Add payer data to the metadata, per LUD-18.
+    if request.payer_data:
+        metadata += json.dumps(request.payer_data)
 
     encoded_invoice = invoice_creator.create_uma_invoice(
         amount_msats=round(amount_msats),
