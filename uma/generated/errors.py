@@ -1,3 +1,5 @@
+# Generated error codes - DO NOT MODIFY MANUALLY
+
 from enum import Enum
 from dataclasses import dataclass
 
@@ -90,6 +92,11 @@ class ErrorCode(Enum):
     )
     """Payer data is missing fields that are required by the receiver"""
 
+    MISSING_MANDATORY_PAYEE_DATA = ErrorDetails(
+        code="MISSING_MANDATORY_PAYEE_DATA", http_status_code=400
+    )
+    """Payee data is missing fields that are required by the sender"""
+
     UNRECOGNIZED_MANDATORY_PAYEE_DATA_KEY = ErrorDetails(
         code="UNRECOGNIZED_MANDATORY_PAYEE_DATA_KEY", http_status_code=501
     )
@@ -155,3 +162,8 @@ class ErrorCode(Enum):
 
     QUOTE_NOT_FOUND = ErrorDetails(code="QUOTE_NOT_FOUND", http_status_code=404)
     """The requested quote was not found"""
+
+    UMA_CONFIGURATION_FETCH_ERROR = ErrorDetails(
+        code="UMA_CONFIGURATION_FETCH_ERROR", http_status_code=424
+    )
+    """Error fetching counterparty UMA configuration"""
