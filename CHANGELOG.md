@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.2
+
+- Add a new function create_pay_request_with_payer_data to create a pay request with a provided payer data blob.
+- Fix invoice metadata for UMA Invoices.
+- Add new error codes.
+
 ## 1.5.1
 
 - Provide default values in the InvalidRequestException constructor.
