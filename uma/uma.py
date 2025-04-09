@@ -6,7 +6,7 @@ from dataclasses import replace
 from datetime import datetime, timezone
 from math import floor
 from typing import Dict, List, Optional
-from urllib.parse import parse_qs, urlparse, unquote
+from urllib.parse import parse_qs, unquote, urlparse
 from uuid import uuid4
 
 import requests
@@ -26,11 +26,11 @@ from uma.exceptions import (
 )
 from uma.generated.errors import ErrorCode
 from uma.nonce_cache import INonceCache
+from uma.protocol.backing_signature import BackingSignature
 from uma.protocol.counterparty_data import (
     CounterpartyDataOption,
     CounterpartyDataOptions,
 )
-from uma.protocol.backing_signature import BackingSignature
 from uma.protocol.currency import Currency
 from uma.protocol.invoice import (
     Invoice,
@@ -54,7 +54,7 @@ from uma.protocol.payreq_response import (
 )
 from uma.protocol.post_tx_callback import PostTransactionCallback, UtxoWithAmount
 from uma.protocol.pubkey_response import PubkeyResponse
-from uma.public_key_cache import IPublicKeyCache, IAsyncPublicKeyCache
+from uma.public_key_cache import IAsyncPublicKeyCache, IPublicKeyCache
 from uma.signing_utils import sign_payload
 from uma.type_utils import none_throws
 from uma.uma_invoice_creator import IUmaInvoiceCreator
@@ -256,10 +256,7 @@ def _encrypt_travel_rule_info(
     travel_rule_info: str, receiver_encryption_pubkey: bytes
 ) -> str:
     public_key = _load_public_key(receiver_encryption_pubkey)
-    return encrypt(
-        receiver_pk=public_key.format(),
-        msg=travel_rule_info.encode(),
-    ).hex()
+    return encrypt(public_key.format(), travel_rule_info.encode()).hex()
 
 
 def create_compliance_payer_data(
