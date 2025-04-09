@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.5.3
+
+- Fix a bug when encrypting travel rule caused by a change in eciespy 0.4.4.
+
 ## 1.5.2
 
 - Add a new function create_pay_request_with_payer_data to create a pay request with a provided payer data blob.
