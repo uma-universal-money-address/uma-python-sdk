@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional
 
 from uma.JSONable import JSONable
 from uma.protocol.backing_signature import BackingSignature
+from uma.protocol.counterparty_data import CounterpartyDataKeys
 from uma.protocol.kyc_status import KycStatus
 
 
@@ -61,7 +62,7 @@ PayerData = Dict[str, Any]
 
 
 def compliance_from_payer_data(payer_data: PayerData) -> Optional[CompliancePayerData]:
-    compliance = payer_data.get("compliance")
+    compliance = payer_data.get(CounterpartyDataKeys.COMPLIANCE.value)
     if not compliance or not isinstance(compliance, dict):
         return None
 
@@ -75,12 +76,12 @@ def create_payer_data(
     compliance: Optional[CompliancePayerData] = None,
 ) -> PayerData:
     payer_data: PayerData = {
-        "identifier": identifier,
+        CounterpartyDataKeys.IDENTIFIER.value: identifier,
     }
     if email:
-        payer_data["email"] = email
+        payer_data[CounterpartyDataKeys.EMAIL.value] = email
     if name:
-        payer_data["name"] = name
+        payer_data[CounterpartyDataKeys.NAME.value] = name
     if compliance:
-        payer_data["compliance"] = compliance.to_dict()
+        payer_data[CounterpartyDataKeys.COMPLIANCE.value] = compliance.to_dict()
     return payer_data

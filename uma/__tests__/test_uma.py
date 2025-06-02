@@ -12,6 +12,7 @@ from ecies import PrivateKey, decrypt
 from ecies.utils import generate_key
 from uma.protocol.counterparty_data import create_counterparty_data_options
 
+from uma.protocol.counterparty_data import CounterpartyDataKeys
 from uma.protocol.currency import Currency
 from uma.exceptions import InvalidNonceException, InvalidSignatureException
 from uma.protocol.kyc_status import KycStatus
@@ -153,7 +154,9 @@ def test_pay_request_create_and_parse() -> None:
     assert pay_request == result_pay_request
     verify_pay_request_signature(pay_request, sender_pubkey_response, nonce_cache)
 
-    compliance_dict = none_throws(result_pay_request.payer_data).get("compliance")
+    compliance_dict = none_throws(result_pay_request.payer_data).get(
+        CounterpartyDataKeys.COMPLIANCE.value
+    )
     assert compliance_dict is not None
     # test invalid signature
     nonce_cache = InMemoryNonceCache(datetime.fromtimestamp(1, timezone.utc))
@@ -311,8 +314,8 @@ def test_parse_v0_pay_request() -> None:
         currency_code="USD",
         amount=100,
         payer_data={
-            "identifier": "$alice@vasp1.com",
-            "compliance": create_compliance_payer_data(
+            CounterpartyDataKeys.IDENTIFIER.value: "$alice@vasp1.com",
+            CounterpartyDataKeys.COMPLIANCE.value: create_compliance_payer_data(
                 receiver_pubkey_response.get_encryption_pubkey(),
                 sender_private_key.secret,
                 "$alice@vasp1.com",
@@ -765,10 +768,18 @@ def test_lnurlp_response_create_and_parse() -> None:
     max_sendable_sats = 10_000_000
     # compliance and identifier should be added automatically.
     payer_data_options = create_counterparty_data_options(
-        {"name": False, "email": False}
+        {
+            CounterpartyDataKeys.NAME.value: False,
+            CounterpartyDataKeys.EMAIL.value: False,
+        }
     )
     expected_payer_data_options = create_counterparty_data_options(
-        {"name": False, "email": False, "compliance": True, "identifier": True}
+        {
+            CounterpartyDataKeys.NAME.value: False,
+            CounterpartyDataKeys.EMAIL.value: False,
+            CounterpartyDataKeys.COMPLIANCE.value: True,
+            CounterpartyDataKeys.IDENTIFIER.value: True,
+        }
     )
     currencies = [
         Currency(
@@ -867,7 +878,12 @@ def test_parse_v0_lnurlp_response() -> None:
     min_sendable_sats = 1
     max_sendable_sats = 10_000_000
     payer_data_options = create_counterparty_data_options(
-        {"name": False, "email": False, "compliance": True, "identifier": True}
+        {
+            CounterpartyDataKeys.NAME.value: False,
+            CounterpartyDataKeys.EMAIL.value: False,
+            CounterpartyDataKeys.COMPLIANCE.value: True,
+            CounterpartyDataKeys.IDENTIFIER.value: True,
+        }
     )
     currencies = [
         Currency(
@@ -942,7 +958,12 @@ def test_sign_and_verify_lnurlp_response_with_backing_signature() -> None:
     receiver_private_key = generate_key()
     backing_vasp_private_key = generate_key()
     payer_data_options = create_counterparty_data_options(
-        {"name": False, "email": False, "compliance": True, "identifier": True}
+        {
+            CounterpartyDataKeys.NAME.value: False,
+            CounterpartyDataKeys.EMAIL.value: False,
+            CounterpartyDataKeys.COMPLIANCE.value: True,
+            CounterpartyDataKeys.IDENTIFIER.value: True,
+        }
     )
     currencies = [
         Currency(

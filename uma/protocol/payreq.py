@@ -6,7 +6,7 @@ from uma.exceptions import InvalidRequestException
 from uma.generated.errors import ErrorCode
 from uma.JSONable import JSONable
 from uma.protocol.backing_signature import BackingSignature
-from uma.protocol.counterparty_data import CounterpartyDataOptions
+from uma.protocol.counterparty_data import CounterpartyDataOptions, CounterpartyDataKeys
 from uma.protocol.payer_data import PayerData, compliance_from_payer_data
 from uma.protocol.v0.payreq import PayRequest as V0PayRequest
 from uma.protocol.v1.payreq import PayRequest as V1PayRequest
@@ -84,7 +84,7 @@ class PayRequest(JSONable):
             raise InvalidRequestException(
                 "payer_data is required.", ErrorCode.MISSING_REQUIRED_UMA_PARAMETERS
             )
-        payer_identifier = self.payer_data.get("identifier")
+        payer_identifier = self.payer_data.get(CounterpartyDataKeys.IDENTIFIER.value)
         if not payer_identifier:
             raise InvalidRequestException(
                 "identifier is required in payerdata for uma.",
@@ -100,7 +100,10 @@ class PayRequest(JSONable):
         return "|".join(payloads).encode("utf8")
 
     def is_uma_request(self) -> bool:
-        return self.payer_data is not None and "compliance" in self.payer_data
+        return (
+            self.payer_data is not None
+            and CounterpartyDataKeys.COMPLIANCE.value in self.payer_data
+        )
 
     def to_dict(self) -> Dict[str, Any]:
         version_payreq = (
@@ -224,4 +227,4 @@ class PayRequest(JSONable):
         compliance.backing_signatures.append(
             BackingSignature(domain=domain, signature=backing_signature)
         )
-        payer_data["compliance"] = compliance.to_dict()
+        payer_data[CounterpartyDataKeys.COMPLIANCE.value] = compliance.to_dict()

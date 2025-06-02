@@ -9,6 +9,7 @@ from uma.protocol.backing_signature import (
 from uma.protocol.counterparty_data import (
     CounterpartyDataOption,
     CounterpartyDataOptions,
+    CounterpartyDataKeys,
     create_counterparty_data_options,
 )
 from uma.protocol.currency import Currency
