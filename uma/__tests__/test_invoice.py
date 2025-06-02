@@ -1,4 +1,5 @@
 from uma.protocol import invoice
+from uma.protocol.counterparty_data import CounterpartyDataKeys
 from uma.protocol.kyc_status import KycStatus
 
 
@@ -17,9 +18,15 @@ def test_invoice_tlv() -> None:
         is_subject_to_travel_rule=True,
         required_payer_data=invoice.InvoiceCounterpartyDataOptions(
             options={
-                "name": invoice.CounterpartyDataOption(mandatory=False),
-                "email": invoice.CounterpartyDataOption(mandatory=False),
-                "compliance": invoice.CounterpartyDataOption(mandatory=True),
+                CounterpartyDataKeys.NAME.value: invoice.CounterpartyDataOption(
+                    mandatory=False
+                ),
+                CounterpartyDataKeys.EMAIL.value: invoice.CounterpartyDataOption(
+                    mandatory=False
+                ),
+                CounterpartyDataKeys.COMPLIANCE.value: invoice.CounterpartyDataOption(
+                    mandatory=True
+                ),
             }
         ),
         comment_chars_allowed=None,

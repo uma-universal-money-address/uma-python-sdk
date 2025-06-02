@@ -7,6 +7,7 @@ from uma.exceptions import InvalidRequestException
 from uma.generated.errors import ErrorCode
 from uma.protocol.backing_signature import BackingSignature
 from uma.protocol.payee_data import PayeeData
+from uma.protocol.counterparty_data import CounterpartyDataKeys
 from uma.signing_utils import sign_payload
 from uma.version import MAJOR_VERSION
 
@@ -71,7 +72,7 @@ class PayReqResponseCompliance(JSONable):
     def from_payee_data(
         cls, payee_data: PayeeData
     ) -> Optional["PayReqResponseCompliance"]:
-        compliance = payee_data.get("compliance")
+        compliance = payee_data.get(CounterpartyDataKeys.COMPLIANCE.value)
         if not compliance or not isinstance(compliance, dict):
             return None
         return PayReqResponseCompliance.from_json(json.dumps(compliance))
@@ -185,7 +186,7 @@ class PayReqResponse(JSONable):
     def is_uma_response(self) -> bool:
         return (
             self.payee_data is not None
-            and "compliance" in self.payee_data
+            and CounterpartyDataKeys.COMPLIANCE.value in self.payee_data
             and self.payment_info is not None
         )
 
@@ -229,7 +230,7 @@ class PayReqResponse(JSONable):
         )
         compliance.backing_signatures = backing_signatures
         payee_data = self.payee_data or {}
-        payee_data["compliance"] = compliance.to_dict()
+        payee_data[CounterpartyDataKeys.COMPLIANCE.value] = compliance.to_dict()
         self.payee_data = payee_data
 
     def to_dict(self) -> Dict[str, Any]:

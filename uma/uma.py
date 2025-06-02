@@ -28,6 +28,7 @@ from uma.generated.errors import ErrorCode
 from uma.nonce_cache import INonceCache
 from uma.protocol.backing_signature import BackingSignature
 from uma.protocol.counterparty_data import (
+    CounterpartyDataKeys,
     CounterpartyDataOption,
     CounterpartyDataOptions,
 )
@@ -399,8 +400,8 @@ def create_pay_request_with_payer_data(
     )
     payer_data = payer_data or {}
     if payer_compliance is not None:
-        payer_data["compliance"] = payer_compliance.to_dict()
-    payer_data["identifier"] = payer_identifier
+        payer_data[CounterpartyDataKeys.COMPLIANCE.value] = payer_compliance.to_dict()
+    payer_data[CounterpartyDataKeys.IDENTIFIER.value] = payer_identifier
     return PayRequest(
         receiving_currency_code=receiving_currency_code,
         sending_amount_currency_code=sending_currency_code,
@@ -708,7 +709,11 @@ def create_pay_req_response(
         metadata=metadata,
         receiver_identifier=payee_identifier,
     )
-    payer_identifier = request.payer_data["identifier"] if request.payer_data else None
+    payer_identifier = (
+        request.payer_data[CounterpartyDataKeys.IDENTIFIER.value]
+        if request.payer_data
+        else None
+    )
     if not payer_identifier and request.is_uma_request():
         raise InvalidRequestException(
             "Missing payer identifier in request",
@@ -716,15 +721,17 @@ def create_pay_req_response(
         )
     if request.is_uma_request():
         payee_data = payee_data or {}
-        payee_data["compliance"] = _create_compliance_payee_data(
-            signing_private_key=none_throws(signing_private_key),
-            payer_identifier=none_throws(payer_identifier),
-            payee_identifier=none_throws(payee_identifier),
-            receiver_utxos=receiver_utxos or [],
-            receiver_node_pubkey=receiver_node_pubkey,
-            utxo_callback=utxo_callback or "",
-        ).to_dict()
-        payee_data["identifier"] = payee_identifier
+        payee_data[CounterpartyDataKeys.COMPLIANCE.value] = (
+            _create_compliance_payee_data(
+                signing_private_key=none_throws(signing_private_key),
+                payer_identifier=none_throws(payer_identifier),
+                payee_identifier=none_throws(payee_identifier),
+                receiver_utxos=receiver_utxos or [],
+                receiver_node_pubkey=receiver_node_pubkey,
+                utxo_callback=utxo_callback or "",
+            ).to_dict()
+        )
+        payee_data[CounterpartyDataKeys.IDENTIFIER.value] = payee_identifier
     return PayReqResponse(
         encoded_invoice=encoded_invoice,
         routes=[],
@@ -801,7 +808,7 @@ def verify_pay_req_response_signature(
             ErrorCode.INTERNAL_ERROR,
         )
 
-    payee_data_identifier = payee_data.get("identifier")
+    payee_data_identifier = payee_data.get(CounterpartyDataKeys.IDENTIFIER.value)
     if (
         payee_data_identifier is not None
         and payee_data_identifier.lower() != receiver_address.lower()
@@ -849,7 +856,7 @@ def verify_pay_req_response_backing_signatures(
             ErrorCode.INTERNAL_ERROR,
         )
 
-    payee_data_identifier = payee_data.get("identifier")
+    payee_data_identifier = payee_data.get(CounterpartyDataKeys.IDENTIFIER.value)
     if (
         payee_data_identifier is not None
         and payee_data_identifier.lower() != receiver_address.lower()
@@ -911,10 +918,14 @@ def create_uma_lnurlp_response(
             currency.uma_major_version = 0
 
     # compliance and identifier are mandatory fields for UMA
-    if "compliance" not in payer_data_options:
-        payer_data_options["compliance"] = CounterpartyDataOption(mandatory=True)
-    if "identifier" not in payer_data_options:
-        payer_data_options["identifier"] = CounterpartyDataOption(mandatory=True)
+    if CounterpartyDataKeys.COMPLIANCE.value not in payer_data_options:
+        payer_data_options[CounterpartyDataKeys.COMPLIANCE.value] = (
+            CounterpartyDataOption(mandatory=True)
+        )
+    if CounterpartyDataKeys.IDENTIFIER.value not in payer_data_options:
+        payer_data_options[CounterpartyDataKeys.IDENTIFIER.value] = (
+            CounterpartyDataOption(mandatory=True)
+        )
 
     return LnurlpResponse(
         tag="payRequest",
