@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.5.4
+
+- Add a `CounterpartyDataKeys` enum.
+
 ## 1.5.3
 
 - Fix a bug when encrypting travel rule caused by a change in eciespy 0.4.4.
