@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.5.5
+
+- Add country of residence and phone number to `CounterpartyDataKeys` enum.
+- Fix UmaException pickling, add a `from_json` function
+
 ## 1.5.4
 
 - Add a `CounterpartyDataKeys` enum.

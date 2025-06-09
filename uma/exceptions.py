@@ -11,6 +11,7 @@ class UmaException(Exception):
         self.reason = reason
         self.code = error_code.value.code
         self.http_status_code = error_code.value.http_status_code
+        self.error_code = error_code
 
     def get_additional_params(self) -> dict:
         """Override this method in child classes to add additional parameters to the JSON output"""
@@ -25,8 +26,22 @@ class UmaException(Exception):
         }
         return json.dumps(result)
 
+    @classmethod
+    def from_json(cls: type["UmaException"], json_str: str) -> "UmaException":
+        try:
+            data = json.loads(json_str)
+            error_code = ErrorCode[data["code"]]
+            return cls(data["reason"], error_code)
+        except (json.JSONDecodeError, KeyError):
+            return cls(
+                f"Failed to parse error JSON: {json_str}", ErrorCode.INTERNAL_ERROR
+            )
+
     def to_http_status_code(self) -> int:
         return self.http_status_code
+
+    def __reduce__(self):
+        return (self.__class__, (self.reason, self.error_code))
 
 
 class UnsupportedVersionException(UmaException):
