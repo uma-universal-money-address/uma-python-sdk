@@ -37,6 +37,12 @@ class CounterpartyDataKeys(Enum):
     NATIONALITY = "nationality"
     """The counterparty's nationality, in ISO 3166-1 alpha-2 format"""
 
+    COUNTRY_OF_RESIDENCE = "countryOfResidence"
+    """The counterparty's country of residence, in ISO 3166-1 alpha-2 format"""
+
+    PHONE_NUMBER = "phoneNumber"
+    """The counterparty's phone number, in E.164 format"""
+
 
 def create_counterparty_data_options(
     options: Dict[str, bool]
