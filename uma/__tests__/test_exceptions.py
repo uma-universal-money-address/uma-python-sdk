@@ -1,4 +1,5 @@
 import json
+import pickle
 import pytest
 from uma.exceptions import (
     UmaException,
@@ -67,3 +68,23 @@ def test_invalid_nonce_exception():
     assert json_output["reason"] == "Timestamp is too old"
     assert json_output["code"] == "INVALID_NONCE"
     assert exc.to_http_status_code() == 400
+
+
+def test_from_json():
+    exc = UmaException("Amount out of range", ErrorCode.AMOUNT_OUT_OF_RANGE)
+    json_str = exc.to_json()
+    exc_from_json = UmaException.from_json(json_str)
+    assert exc_from_json.reason == "Amount out of range"
+    assert exc_from_json.error_code == ErrorCode.AMOUNT_OUT_OF_RANGE
+    assert exc_from_json.to_http_status_code() == 400
+    assert exc_from_json.code == "AMOUNT_OUT_OF_RANGE"
+
+
+def test_pickle():
+    exc = UmaException("Internal error", ErrorCode.INTERNAL_ERROR)
+    exc_pickled = pickle.dumps(exc)
+    exc_unpickled = pickle.loads(exc_pickled)
+    assert exc_unpickled.reason == "Internal error"
+    assert exc_unpickled.error_code == ErrorCode.INTERNAL_ERROR
+    assert exc_unpickled.to_http_status_code() == 500
+    assert exc_unpickled.code == "INTERNAL_ERROR"
