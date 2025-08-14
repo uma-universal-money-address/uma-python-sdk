@@ -43,9 +43,12 @@ class CounterpartyDataKeys(Enum):
     PHONE_NUMBER = "phoneNumber"
     """The counterparty's phone number, in E.164 format"""
 
+    FI_LEGAL_ENTITY_NAME = "fiLegalEntityName"
+    """The counterparty financial institution's legal entity name"""
+
 
 def create_counterparty_data_options(
-    options: Dict[str, bool]
+    options: Dict[str, bool],
 ) -> CounterpartyDataOptions:
     return {
         key: CounterpartyDataOption(mandatory=value) for key, value in options.items()
