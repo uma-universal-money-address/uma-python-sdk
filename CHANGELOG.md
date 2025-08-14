@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.5.6
+- Add financial legal entity name to `CounterpartyDataKeys` enum.
+
 ## 1.5.5
 
 - Add country of residence and phone number to `CounterpartyDataKeys` enum.
