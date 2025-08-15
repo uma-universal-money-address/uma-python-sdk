@@ -21,7 +21,7 @@ from uma.nonce_cache import InMemoryNonceCache
 from uma.protocol.pubkey_response import PubkeyResponse
 from uma.public_key_cache import InMemoryPublicKeyCache, IAsyncPublicKeyCache
 from uma.type_utils import none_throws
-from uma.protocol.post_tx_callback import UtxoWithAmount
+from uma.protocol.post_tx_callback import UtxoWithAmount, TransactionStatus
 from uma.protocol.v0.payreq import PayRequest as V0PayRequest
 from uma.protocol.invoice import InvoiceCurrency
 from uma.uma import (
@@ -54,6 +54,7 @@ from uma.uma import (
     verify_uma_invoice_signature,
 )
 from uma.uma_invoice_creator import IUmaInvoiceCreator
+from uma.generated.errors import ErrorCode
 
 
 def test_fetch_public_key() -> None:
@@ -1194,9 +1195,13 @@ def test_post_transaction_callback_create_and_parse() -> None:
         utxos=[UtxoWithAmount(utxo="abcdef12345", amount_msats=100)],
         vasp_domain="myvasp.com",
         signing_private_key=private_key.secret,
+        transaction_status=TransactionStatus.FAILED,
+        error_code=ErrorCode.INTERNAL_ERROR.value.code,
+        error_reason="Internal error while executing quote",
     )
 
-    assert callback == parse_post_transaction_callback(callback.to_json())
+    parsed_callback = parse_post_transaction_callback(callback.to_json())
+    assert parsed_callback == callback
     verify_post_transaction_callback_signature(callback, pubkey_response, nonce_cache)
 
     # test invalid signature

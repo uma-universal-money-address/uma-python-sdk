@@ -1,7 +1,20 @@
 from dataclasses import dataclass
 from typing import List, Optional
+from enum import Enum
 
 from uma.JSONable import JSONable
+
+
+class TransactionStatus(str, Enum):
+    COMPLETED = "COMPLETED"
+    """
+    Recipient received the payment.
+    """
+
+    FAILED = "FAILED"
+    """
+    Payment failed due to a post-transaction error.
+    """
 
 
 @dataclass
@@ -39,9 +52,26 @@ class PostTransactionCallback(JSONable):
 
     signature_timestamp: Optional[int]
     """
-    Time stamp of the signature in seconds since epoch
+    Timestamp of the signature in seconds since epoch
     
     Note: This field is optional for UMA v0.X backwards-compatibility. It is required for UMA v1.X.
+    """
+
+    transaction_status: Optional[TransactionStatus]
+    """
+    The status of the transaction.
+    """
+
+    error_code: Optional[str]
+    """
+    The error code if the transaction has failed. This should be one of the [ErrorCode] enum values.
+    This should only be set if `transaction_status` is `FAILED`.
+    """
+
+    error_reason: Optional[str]
+    """
+    The reason for the transaction failure.
+    Only set when transaction_status is `FAILED`.
     """
 
     def signable_payload(self) -> bytes:
@@ -54,4 +84,4 @@ class PostTransactionCallback(JSONable):
                 "Fields needed for signature are missing. Nonce, timestamp, and vasp_domain are required for UMA v1."
             )
         signable = "|".join([self.signature_nonce, str(self.signature_timestamp)])
-        return signable.encode("utf8")
+        return signable.encode("utf-8")
