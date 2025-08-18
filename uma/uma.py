@@ -53,7 +53,11 @@ from uma.protocol.payreq_response import (
     PayReqResponseCompliance,
     PayReqResponsePaymentInfo,
 )
-from uma.protocol.post_tx_callback import PostTransactionCallback, UtxoWithAmount
+from uma.protocol.post_tx_callback import (
+    PostTransactionCallback,
+    UtxoWithAmount,
+    TransactionStatus,
+)
 from uma.protocol.pubkey_response import PubkeyResponse
 from uma.public_key_cache import IAsyncPublicKeyCache, IPublicKeyCache
 from uma.signing_utils import sign_payload
@@ -1050,6 +1054,9 @@ def create_post_transaction_callback(
     utxos: List[UtxoWithAmount],
     vasp_domain: str,
     signing_private_key: bytes,
+    transaction_status: Optional[TransactionStatus] = None,
+    error_code: Optional[str] = None,
+    error_reason: Optional[str] = None,
 ) -> PostTransactionCallback:
     """
     Creates a signed post transaction callback.
@@ -1058,6 +1065,9 @@ def create_post_transaction_callback(
         utxos: UTXOs of the channels of the VASP initiating the callback.
         vasp_domain: the domain of the VASP initiating the callback.
         signing_private_key: the private key of the VASP initiating the callback. This will be used to sign the request.
+        transaction_status: the status of the transaction.
+        error_code: the error code of the transaction. This should be one of the values in [ErrorCode]. Should only be set if transaction_status is FAILED.
+        error_reason: the reason for the transaction failure. This should only be set if transaction_status is FAILED.
     """
     timestamp = int(datetime.now(timezone.utc).timestamp())
     nonce = generate_nonce()
@@ -1067,6 +1077,9 @@ def create_post_transaction_callback(
         signature="",
         signature_nonce=nonce,
         signature_timestamp=timestamp,
+        transaction_status=transaction_status,
+        error_code=error_code,
+        error_reason=error_reason,
     )
     payload = post_transaction_callback.signable_payload()
     signature = sign_payload(payload, signing_private_key)
