@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.5.7
+- Add status, error code and reason to post-tx callback.
+
 ## 1.5.6
 - Add financial legal entity name to `CounterpartyDataKeys` enum.
 
