@@ -34,7 +34,11 @@ from uma.protocol.payreq_response import (
     PayReqResponseCompliance,
     PayReqResponsePaymentInfo,
 )
-from uma.protocol.post_tx_callback import PostTransactionCallback, UtxoWithAmount
+from uma.protocol.post_tx_callback import (
+    PostTransactionCallback,
+    TransactionStatus,
+    UtxoWithAmount,
+)
 from uma.protocol.pubkey_response import PubkeyResponse
 from uma.public_key_cache import (
     InMemoryPublicKeyCache,

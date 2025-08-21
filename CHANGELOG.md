@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.5.8
+
+- Export post-tx callback `TransactionStatus`
+
 ## 1.5.7
 - Add status, error code and reason to post-tx callback.
 
