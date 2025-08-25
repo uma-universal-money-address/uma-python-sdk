@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.5.9
+
+- Export `parse_post_transaction_callback` function
+
 ## 1.5.8
 
 - Export post-tx callback `TransactionStatus`

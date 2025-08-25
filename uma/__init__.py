@@ -66,6 +66,7 @@ from uma.uma import (
     parse_lnurlp_response,
     parse_pay_req_response,
     parse_pay_request,
+    parse_post_transaction_callback,
     verify_pay_req_response_signature,
     verify_pay_req_response_backing_signatures,
     verify_pay_request_signature,
