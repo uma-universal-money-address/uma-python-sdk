@@ -24,6 +24,7 @@ from uma.type_utils import none_throws
 from uma.protocol.post_tx_callback import UtxoWithAmount, TransactionStatus
 from uma.protocol.v0.payreq import PayRequest as V0PayRequest
 from uma.protocol.invoice import InvoiceCurrency
+from uma.protocol.settlement import SettlementInfo
 from uma.uma import (
     create_compliance_payer_data,
     create_pubkey_response,
@@ -32,6 +33,7 @@ from uma.uma import (
     create_uma_invoice,
     create_pay_req_response,
     create_pay_request,
+    create_pay_req_response_for_settlement_layer,
     create_post_transaction_callback,
     fetch_public_key_for_vasp,
     gen_fetch_public_key_for_vasp,
@@ -482,7 +484,7 @@ def test_pay_req_response_create_and_parse() -> None:
     assert payment_info.currency_code == currency_code
     assert payment_info.decimals == currency_decimals
     assert payment_info.multiplier == msats_per_currency_unit
-    assert payment_info.exchange_fees_msats == receiver_fees_msats
+    assert payment_info.exchange_fees == receiver_fees_msats
     verify_pay_req_response_signature(
         sender_address="$alice@vasp1.com",
         receiver_address="$Bob@vasp2.com",
@@ -563,7 +565,7 @@ def test_v0_pay_req_response_create_and_parse() -> None:
     assert payment_info.currency_code == currency_code
     assert payment_info.decimals == currency_decimals
     assert payment_info.multiplier == msats_per_currency_unit
-    assert payment_info.exchange_fees_msats == receiver_fees_msats
+    assert payment_info.exchange_fees == receiver_fees_msats
 
 
 def test_pay_req_with_locked_sending_amount() -> None:
@@ -643,7 +645,7 @@ def test_pay_req_with_locked_sending_amount() -> None:
     assert payment_info.currency_code == currency_code
     assert payment_info.decimals == currency_decimals
     assert payment_info.multiplier == msats_per_currency_unit
-    assert payment_info.exchange_fees_msats == receiver_fees_msats
+    assert payment_info.exchange_fees == receiver_fees_msats
     verify_pay_req_response_signature(
         sender_address="$alice@vasp1.com",
         receiver_address="$bob@vasp2.com",
@@ -1300,6 +1302,203 @@ def test_uma_invoice_signature() -> None:
 
     assert verify_uma_invoice_signature(invoice, pubkey_response) is None
     assert invoice.signature is not None
+
+
+def test_settlement_options_in_lnurlp_response() -> None:
+    from uma.protocol.settlement import SettlementAsset, SettlementOption
+
+    sender_private_key = generate_key()
+    receiver_private_key = generate_key()
+    receiver_address = "bob@vasp2.com"
+    lnurlp_request_url = create_uma_lnurlp_request_url(
+        signing_private_key=sender_private_key.secret,
+        receiver_address=receiver_address,
+        sender_vasp_domain="vasp1.com",
+        is_subject_to_travel_rule=True,
+    )
+    lnurlp_request = parse_lnurlp_request(lnurlp_request_url)
+    settlement_options = [
+        SettlementOption(
+            settlement_layer="ln",
+            assets=[
+                SettlementAsset(
+                    identifier="BTC",
+                    multipliers={
+                        "USD": 34150.0,
+                        "PHP": 5678.0,
+                    },
+                )
+            ],
+        ),
+        SettlementOption(
+            settlement_layer="spark",
+            assets=[
+                SettlementAsset(
+                    identifier="btkn1...",
+                    multipliers={
+                        "USD": 100.0,
+                    },
+                )
+            ],
+        ),
+    ]
+    metadata = _create_metadata()
+    callback = "https://vasp2.com/api/lnurl/payreq/$bob"
+    min_sendable_sats = 1
+    max_sendable_sats = 10_000_000
+    payer_data_options = create_counterparty_data_options(
+        {"name": False, "email": False}
+    )
+    currencies = [
+        Currency(
+            code="USD",
+            name="US Dollar",
+            symbol="$",
+            millisatoshi_per_unit=34_150,
+            max_sendable=max_sendable_sats,
+            min_sendable=min_sendable_sats,
+            decimals=2,
+        ),
+        Currency(
+            code="PHP",
+            name="Philippine Peso",
+            symbol="₱",
+            millisatoshi_per_unit=5678,
+            max_sendable=max_sendable_sats,
+            min_sendable=min_sendable_sats,
+            decimals=2,
+        ),
+    ]
+
+    response = create_uma_lnurlp_response(
+        request=lnurlp_request,
+        signing_private_key=receiver_private_key.secret,
+        requires_travel_rule_info=True,
+        callback=callback,
+        encoded_metadata=metadata,
+        min_sendable_sats=min_sendable_sats,
+        max_sendable_sats=max_sendable_sats,
+        payer_data_options=payer_data_options,
+        currency_options=currencies,
+        receiver_kyc_status=KycStatus.VERIFIED,
+        settlement_options=settlement_options,
+    )
+
+    assert response.settlement_options is not None
+    settlement_options = response.settlement_options
+    assert len(settlement_options) == 2
+    assert settlement_options[0].settlement_layer == "ln"
+    assert settlement_options[0].assets[0].identifier == "BTC"
+    assert settlement_options[0].assets[0].multipliers["USD"] == 34150.0
+    assert settlement_options[0].assets[0].multipliers["PHP"] == 5678.0
+    assert settlement_options[1].settlement_layer == "spark"
+    assert settlement_options[1].assets[0].identifier == "btkn1..."
+    assert settlement_options[1].assets[0].multipliers["USD"] == 100.0
+
+    response_json = response.to_json()
+    parsed_response = parse_lnurlp_response(response_json)
+    assert parsed_response == response
+
+
+def test_settlement_fields_in_pay_request() -> None:
+    currency_code = "USD"
+    amount = 100
+    payer_identifier = "$alice@vasp.com"
+
+    pay_request = create_pay_request(
+        receiving_currency_code=currency_code,
+        is_amount_in_receiving_currency=True,
+        amount=amount,
+        payer_identifier=payer_identifier,
+        uma_major_version=1,
+        payer_name="Alice",
+        payer_email=None,
+        payer_compliance=None,
+        settlement_info=SettlementInfo(
+            layer="ln",
+            asset_identifier="BTC",
+        ),
+    )
+
+    assert pay_request.settlement_info is not None
+    settlement_info = pay_request.settlement_info
+    assert settlement_info.layer == "ln"
+    assert settlement_info.asset_identifier == "BTC"
+
+    payreq_json = json.loads(pay_request.to_json())
+    assert payreq_json.get("settlement") is not None
+    assert payreq_json["settlement"]["layer"] == "ln"
+    assert payreq_json["settlement"]["assetIdentifier"] == "BTC"
+
+    deserialized_payreq = parse_pay_request(json.dumps(payreq_json))
+    assert deserialized_payreq.settlement_info is not None
+    settlement_info = deserialized_payreq.settlement_info
+    assert settlement_info.layer == "ln"
+    assert settlement_info.asset_identifier == "BTC"
+
+
+def test_create_pay_req_response_for_settlement_layer() -> None:
+    """Test the settlement-layer-agnostic pay req response function"""
+    currency_code = "USD"
+    payer_identifier = "$alice@vasp.com"
+    payee_identifier = "$bob@vasp.com"
+    sender_private_key = generate_key()
+    receiver_private_key = generate_key()
+    receiver_pubkey_response = _create_pubkey_response(
+        receiver_private_key, receiver_private_key
+    )
+    payer_kyc_status = KycStatus.VERIFIED
+    sender_utxo_callback = "/sender_api/lnurl/utxocallback?txid=1234"
+    pay_request = create_pay_request(
+        receiving_currency_code=currency_code,
+        is_amount_in_receiving_currency=True,
+        amount=100,
+        payer_identifier=payer_identifier,
+        uma_major_version=1,
+        payer_name="Alice",
+        payer_email=None,
+        payer_compliance=create_compliance_payer_data(
+            signing_private_key=sender_private_key.secret,
+            receiver_encryption_pubkey=receiver_pubkey_response.get_encryption_pubkey(),
+            payer_identifier=payer_identifier,
+            travel_rule_info=None,
+            payer_node_pubkey="dummy_node_key",
+            payer_kyc_status=payer_kyc_status,
+            payer_utxos=["abcdef12345"],
+            utxo_callback=sender_utxo_callback,
+        ),
+        settlement_info=SettlementInfo(
+            layer="spark",
+            asset_identifier="btkn1...",
+        ),
+    )
+
+    response = create_pay_req_response_for_settlement_layer(
+        request=pay_request,
+        invoice_creator=DummyUmaInvoiceCreator(),
+        metadata='[{"text/plain":"Pay to Bob"}]',
+        receiving_currency_code=currency_code,
+        receiving_currency_decimals=2,
+        multiplier=100.0,
+        receiver_fee=10,
+        callback_url="https://vasp.com/callback",
+        payee_identifier=payee_identifier,
+        signing_private_key=receiver_private_key.secret,
+    )
+
+    assert response is not None
+    assert response.encoded_invoice is not None
+    assert response.payment_info is not None
+    payment_info = response.payment_info
+    assert payment_info.currency_code == currency_code
+    assert payment_info.decimals == 2
+    assert payment_info.multiplier == 100.0
+    assert payment_info.exchange_fees == 10
+    assert response.payee_data is not None
+    assert (
+        response.payee_data.get(CounterpartyDataKeys.IDENTIFIER.value)
+        == payee_identifier
+    )
 
 
 class TestAsyncPublicKeyCache(IAsyncPublicKeyCache):

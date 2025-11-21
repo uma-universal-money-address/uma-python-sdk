@@ -104,16 +104,29 @@ class PayReqResponsePaymentInfo(JSONable):
 
     multiplier: float
     """
-    The conversion rate. It is the number of millisatoshis that the receiver will receive for 1
-    unit of the specified currency (eg: cents in USD). In this context, this is just for convenience. The conversion
-    rate is also baked into the invoice amount itself. Specifically:
-    `invoiceAmount = amount * multiplier + exchange_fees_msats`
+    The conversion rate. In the default case (Lightning/BTC), it is the number of millisatoshis that the
+    receiver will receive for 1 unit of the specified currency (eg: cents in USD). In this context, this
+    is just for convenience. The conversionrate is also baked into the invoice amount itself. Specifically:
+    `invoiceAmount = amount * multiplier + exchange_fees`
+
+    For other settlement layers, this is the number of the smallest unit of the settlement asset that the
+    receiver will receive for 1 unit of the specified currency.
     """
 
     exchange_fees_msats: int
     """
-    The fees charged (in millisats) by the receiving VASP for this transaction. This is separate from the `multiplier`.
+    The fees charged by the receiving VASP for this transaction.
+    Deprecated: Use `exchange_fees` instead. This field will be removed in the next major version.
     """
+
+    @property
+    def exchange_fees(self) -> int:
+        """
+        The fees charged by the receiving VASP for this transaction. In the default case (Lightning/BTC),
+        this is in millisatoshis. For other settlement layers, this is in the smallest unit of the
+        settlement asset. This is separate from the `multiplier`.
+        """
+        return self.exchange_fees_msats
 
     @classmethod
     def _get_field_name_overrides(cls) -> Dict[str, str]:
@@ -123,7 +136,7 @@ class PayReqResponsePaymentInfo(JSONable):
         resp = super().to_dict()
         # For backwards-compatibility with UMA v0, duplicate the fee field
         # under both names:
-        resp["exchangeFeesMillisatoshi"] = self.exchange_fees_msats
+        resp["exchangeFeesMillisatoshi"] = self.exchange_fees
         return resp
 
     @classmethod

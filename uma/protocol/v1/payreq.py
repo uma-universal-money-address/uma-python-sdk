@@ -6,14 +6,16 @@ from typing import Any, Dict, Optional
 from uma.protocol.counterparty_data import CounterpartyDataOptions
 from uma.JSONable import JSONable
 from uma.protocol.payer_data import PayerData
+from uma.protocol.settlement import SettlementInfo
 
 
 @dataclass
 class PayRequest(JSONable):
     sending_amount_currency_code: Optional[str]
     """
-    The currency code of the `amount` field. `None` indicates that `amount` is in millisatoshis
-    as in LNURL without LUD-21. If this is not `None`, then `amount` is in the smallest unit of
+    The currency code of the `amount` field. `None` indicates that `amount` is in the smallest
+    unit of the settlement asset. For lightning, this is millisatoshis as in LNURL without LUD-21.
+    If this is not `None`, then `amount` is in the smallest unit of
     the specified currency (e.g. cents for USD). This currency code can be any currency which
     the receiver can quote. However, there are two most common scenarios for UMA:
 
@@ -24,12 +26,14 @@ class PayRequest(JSONable):
     for some goods or services in a foreign currency.
 
     2. If the sender has a specific amount in their own currency that they would like to send,
-    then this field should be left as `None` to indicate that the amount is in millisatoshis.
+    then this field should be left as `None` to indicate that the amount is in the smallest
+    unit of the settlement asset (ie. msats by default).
     This will lock the sent amount on the sender side, and the receiver will receive the
     equivalent amount in their receiving currency. NOTE: In this scenario, the sending VASP
     *should not* pass the sending currency code here, as it is not relevant to the receiver.
-    Rather, by specifying an invoice amount in msats, the sending VASP can ensure that their
-    user will be sending a fixed amount, regardless of the exchange rate on the receiving side.
+    Rather, by specifying an invoice amount in the settlement asset (for example, msats for
+    lightning), the sending VASP can ensure that their user will be sending a fixed amount,
+    regardless of the exchange rate on the receiving side.
     """
 
     receiving_currency_code: Optional[str]
@@ -62,9 +66,19 @@ class PayRequest(JSONable):
     the comment must be less than or equal to the value of `commentAllowed`.
     """
 
+    settlement_info: Optional[SettlementInfo] = None
+    """
+    Settlement information including the layer and asset chosen by the sender.
+    Must be one of the options provided by the receiver in the lnurlp response.
+    If not specified, defaults to Lightning with BTC.
+    """
+
     @classmethod
     def _get_field_name_overrides(cls) -> Dict[str, str]:
-        return {"requested_payee_data": "payeeData"}
+        return {
+            "requested_payee_data": "payeeData",
+            "settlement_info": "settlement",
+        }
 
     def to_dict(self) -> Dict[str, Any]:
         result_dict = super().to_dict()
