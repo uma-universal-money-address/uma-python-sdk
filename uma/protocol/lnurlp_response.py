@@ -8,6 +8,7 @@ from uma.protocol.backing_signature import BackingSignature
 from uma.protocol.counterparty_data import CounterpartyDataOptions
 from uma.protocol.currency import Currency
 from uma.protocol.kyc_status import KycStatus
+from uma.protocol.settlement import SettlementOption
 from uma.signing_utils import sign_payload
 
 
@@ -108,12 +109,19 @@ class LnurlpResponse(JSONable):
     Should be set to true if the receiving VASP allows nostr zaps (NIP-57).
     """
 
+    settlement_options: Optional[List[SettlementOption]] = None
+    """
+    Optional list of settlement layers and assets supported by the receiver.
+    If not specified, the payment will settle on Lightning using BTC as the settlement asset.
+    """
+
     @classmethod
     def _get_field_name_overrides(cls) -> Dict[str, str]:
         return {
             "encoded_metadata": "metadata",
             "required_payer_data": "payerData",
             "comment_chars_allowed": "commentAllowed",
+            "settlement_options": "settlementOptions",
         }
 
     def is_uma_response(self) -> bool:

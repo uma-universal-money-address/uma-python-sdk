@@ -53,6 +53,7 @@ from uma.protocol.payreq_response import (
     PayReqResponseCompliance,
     PayReqResponsePaymentInfo,
 )
+from uma.protocol.settlement import SettlementInfo, SettlementOption
 from uma.protocol.post_tx_callback import (
     PostTransactionCallback,
     UtxoWithAmount,
@@ -309,6 +310,7 @@ def create_pay_request(
     requested_payee_data: Optional[CounterpartyDataOptions] = None,
     comment: Optional[str] = None,
     invoice_uuid: Optional[str] = None,
+    settlement_info: Optional[SettlementInfo] = None,
 ) -> PayRequest:
     """
     Creates a payreq request object.
@@ -317,9 +319,10 @@ def create_pay_request(
         receiving_currency_code: The code of the currency that the receiver will receive for this
             payment.
         amount: The amount that the receiver will receive in either the smallest unit of the
-            receiving currency (if is_amount_in_receiving_currency is True), or in msats (if false).
+            receiving currency (if is_amount_in_receiving_currency is True), or in the smallest unit
+            of the settlement asset (if false).
         is_amount_in_receiving_currency: Whether the amount field is specified in the smallest unit
-            of the receiving currency or in msats (if false).
+            of the receiving currency or in the smallest unit of the settlement asset (if false).
         payer_identifier: The UMA address of the sender. For example, $alice@vasp.com.
         uma_major_version: The major version of the UMA protocol that this currency adheres to.
             If non-UMA, this version is still relevant for which LUD-21 spec to follow. For the older
@@ -334,6 +337,7 @@ def create_pay_request(
             if the receiver included the `commentAllowed` field in the lnurlp response. The length of
             the comment must be less than or equal to the value of `commentAllowed`.
         invoice_uuid: if the PayRequest is for an UMA invoice, this should be the UUID of the invoice.
+        settlement_info: The settlement info chosen by the sender for this payment.
     """
     payer_data = create_payer_data(
         identifier=payer_identifier,
@@ -352,6 +356,7 @@ def create_pay_request(
         requested_payee_data=requested_payee_data,
         comment=comment,
         invoice_uuid=invoice_uuid,
+        settlement_info=settlement_info,
     )
 
 
@@ -366,6 +371,7 @@ def create_pay_request_with_payer_data(
     requested_payee_data: Optional[CounterpartyDataOptions] = None,
     comment: Optional[str] = None,
     invoice_uuid: Optional[str] = None,
+    settlement_info: Optional[SettlementInfo] = None,
 ) -> PayRequest:
     """
     Creates a payreq request object using the provided payer data.
@@ -374,9 +380,10 @@ def create_pay_request_with_payer_data(
         receiving_currency_code: The code of the currency that the receiver will receive for this
             payment.
         amount: The amount that the receiver will receive in either the smallest unit of the
-            receiving currency (if is_amount_in_receiving_currency is True), or in msats (if false).
+            receiving currency (if is_amount_in_receiving_currency is True), or in the smallest
+            unit of the settlement asset (if false).
         is_amount_in_receiving_currency: Whether the amount field is specified in the smallest unit
-            of the receiving currency or in msats (if false).
+            of the receiving currency or in the smallest unit of the settlement asset (if false).
         payer_identifier: The UMA address of the sender. For example, $alice@vasp.com.
         uma_major_version: The major version of the UMA protocol that this currency adheres to.
             If non-UMA, this version is still relevant for which LUD-21 spec to follow. For the older
@@ -392,10 +399,11 @@ def create_pay_request_with_payer_data(
             if the receiver included the `commentAllowed` field in the lnurlp response. The length of
             the comment must be less than or equal to the value of `commentAllowed`.
         invoice_uuid: if the PayRequest is for an UMA invoice, this should be the UUID of the invoice.
+        settlement_info: The settlement info chosen by the sender for this payment.
     """
     if uma_major_version == 0 and not is_amount_in_receiving_currency:
         raise InvalidRequestException(
-            "UMA v0 does not support sending amounts in msats. Please set is_amount_in_receiving_currency to True.",
+            "UMA v0 does not support sender-locked amounts. Please set is_amount_in_receiving_currency to True.",
             ErrorCode.INTERNAL_ERROR,
         )
 
@@ -415,6 +423,7 @@ def create_pay_request_with_payer_data(
         comment=comment,
         uma_major_version=uma_major_version,
         invoice_uuid=invoice_uuid,
+        settlement_info=settlement_info,
     )
 
 
@@ -641,7 +650,7 @@ def create_pay_req_response(
     Creates an uma pay request response with an encoded invoice.
 
     Args:
-        request: the uma pay request.This will be used to sign the request.
+        request: the uma pay request. This will be used to sign the request.
         invoice_creator: the object that will create the invoice. In practice, this is usually a `services.LightsparkClient`.
         metadata: the metadata that will be added to the invoice's metadata hash field. This should be a JSON array as specified in LUD-06.
         receiving_currency_code: the code of the currency that the receiver will receive for this payment. Required for UMA transactions.
@@ -708,10 +717,11 @@ def create_pay_req_response(
     if request.payer_data:
         metadata += json.dumps(request.payer_data)
 
-    encoded_invoice = invoice_creator.create_uma_invoice(
-        amount_msats=round(amount_msats),
+    encoded_invoice = invoice_creator.create_invoice_for_settlement_layer(
+        amount_units=round(amount_msats),
         metadata=metadata,
         receiver_identifier=payee_identifier,
+        settlement_info=request.settlement_info,
     )
     payer_identifier = (
         request.payer_data[CounterpartyDataKeys.IDENTIFIER.value]
@@ -755,6 +765,71 @@ def create_pay_req_response(
         disposable=disposable,
         success_action=success_action,
         uma_major_version=request.uma_major_version,
+    )
+
+
+def create_pay_req_response_for_settlement_layer(
+    request: PayRequest,
+    invoice_creator: IUmaInvoiceCreator,
+    metadata: str,
+    receiving_currency_code: Optional[str],
+    receiving_currency_decimals: Optional[int],
+    multiplier: Optional[float],
+    receiver_fee: Optional[int],
+    callback_url: Optional[str],
+    payee_identifier: Optional[str],
+    signing_private_key: Optional[bytes],
+    receiver_node_pubkey: Optional[str] = None,
+    payee_data: Optional[PayerData] = None,
+    disposable: bool = True,
+    success_action: Optional[Dict[str, str]] = None,
+) -> PayReqResponse:
+    """
+    Creates a pay request response. This is the recommended function for working
+    with alternate settlement layers. For Lightning-only implementations, you can
+    still use `create_pay_req_response`.
+
+    Args:
+        request: The uma pay request.
+        invoice_creator: Creates the payment request for the settlement layer specified
+            in the pay request.
+        metadata: Metadata to include in the payment request (JSON array per LUD-06).
+        receiving_currency_code: Currency code the receiver will receive (e.g., "USD").
+        receiving_currency_decimals: Decimal places in the currency (e.g., 2 for USD).
+        multiplier: The conversion rate - how many of the smallest units of the settlement
+            asset equal one unit of the receiving currency.
+            For example:
+            - Lightning/BTC: If 1 USD cent = 34,150 millisatoshis, then multiplier = 34150
+            - Spark USDC: If 1 USD cent = 100 token units, then multiplier = 100
+        receiver_fee: Fees charged by receiver in smallest units of settlement asset
+            (e.g. millisatoshis for Lightning/BTC, token units for Spark USDC).
+        callback_url: URL to call when payment completes with transaction details.
+        payee_identifier: Receiver's UMA address (e.g., $bob@vasp.com). Required for UMA.
+        signing_private_key: Receiver VASP's private key for signing. Required for UMA.
+        receiver_node_pubkey: the public key of the receiver node. Only relevant when the
+            settlement layer is Lightning.
+        payee_data: Additional payee data requested by sender in the pay request.
+        disposable: Whether the payment link should be single-use (see LUD-11).
+        success_action: Action for wallet to take after payment completes (see LUD-09).
+
+    Returns:
+        PayReqResponse with the encoded payment request.
+    """
+    return create_pay_req_response(
+        request=request,
+        invoice_creator=invoice_creator,
+        metadata=metadata,
+        receiving_currency_code=receiving_currency_code,
+        receiving_currency_decimals=receiving_currency_decimals,
+        msats_per_currency_unit=multiplier,
+        receiver_fees_msats=receiver_fee,
+        utxo_callback=callback_url,
+        payee_identifier=payee_identifier,
+        signing_private_key=signing_private_key,
+        receiver_node_pubkey=receiver_node_pubkey,
+        payee_data=payee_data,
+        disposable=disposable,
+        success_action=success_action,
     )
 
 
@@ -899,6 +974,7 @@ def create_uma_lnurlp_response(
     receiver_kyc_status: KycStatus,
     comment_chars_allowed: Optional[int] = None,
     nostr_pubkey: Optional[str] = None,
+    settlement_options: Optional[List[SettlementOption]] = None,
 ) -> LnurlpResponse:
     if not request.is_uma_request():
         raise InvalidRequestException(
@@ -944,6 +1020,7 @@ def create_uma_lnurlp_response(
         comment_chars_allowed=comment_chars_allowed,
         nostr_pubkey=nostr_pubkey,
         allows_nostr=nostr_pubkey is not None,
+        settlement_options=settlement_options,
     )
 
 

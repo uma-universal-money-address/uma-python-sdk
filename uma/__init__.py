@@ -15,6 +15,7 @@ from uma.protocol.counterparty_data import (
 from uma.protocol.currency import Currency
 from uma.protocol.kyc_status import KycStatus
 from uma.protocol.lnurlp_request import LnurlpRequest
+from uma.protocol.settlement import SettlementAsset, SettlementInfo, SettlementOption
 from uma.protocol.lnurlp_response import LnurlComplianceResponse, LnurlpResponse
 from uma.protocol.invoice import (
     Invoice,
@@ -50,6 +51,7 @@ from uma.type_utils import none_throws
 from uma.uma import (
     create_compliance_payer_data,
     create_pay_req_response,
+    create_pay_req_response_for_settlement_layer,
     create_pay_request,
     create_pay_request_with_payer_data,
     create_post_transaction_callback,

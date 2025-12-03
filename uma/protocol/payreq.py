@@ -8,6 +8,7 @@ from uma.JSONable import JSONable
 from uma.protocol.backing_signature import BackingSignature
 from uma.protocol.counterparty_data import CounterpartyDataOptions, CounterpartyDataKeys
 from uma.protocol.payer_data import PayerData, compliance_from_payer_data
+from uma.protocol.settlement import SettlementInfo
 from uma.protocol.v0.payreq import PayRequest as V0PayRequest
 from uma.protocol.v1.payreq import PayRequest as V1PayRequest
 from uma.signing_utils import sign_payload
@@ -19,8 +20,9 @@ from uma.version import MAJOR_VERSION
 class PayRequest(JSONable):
     sending_amount_currency_code: Optional[str]
     """
-    The currency code of the `amount` field. `None` indicates that `amount` is in millisatoshis
-    as in LNURL without LUD-21. If this is not `None`, then `amount` is in the smallest unit of
+    The currency code of the `amount` field. `None` indicates that `amount` is in the smallest
+    unit of the settlement asset. For lightning, this is millisatoshis as in LNURL without LUD-21.
+    If this is not `None`, then `amount` is in the smallest unit of
     the specified currency (e.g. cents for USD). This currency code can be any currency which
     the receiver can quote. However, there are two most common scenarios for UMA:
 
@@ -31,12 +33,14 @@ class PayRequest(JSONable):
     for some goods or services in a foreign currency.
 
     2. If the sender has a specific amount in their own currency that they would like to send,
-    then this field should be left as `None` to indicate that the amount is in millisatoshis.
+    then this field should be left as `None` to indicate that the amount is in the smallest
+    unit of the settlement asset (ie. msats by default).
     This will lock the sent amount on the sender side, and the receiver will receive the
     equivalent amount in their receiving currency. NOTE: In this scenario, the sending VASP
     *should not* pass the sending currency code here, as it is not relevant to the receiver.
-    Rather, by specifying an invoice amount in msats, the sending VASP can ensure that their
-    user will be sending a fixed amount, regardless of the exchange rate on the receiving side.
+    Rather, by specifying an invoice amount in the settlement asset (for example, msats for
+    lightning), the sending VASP can ensure that their user will be sending a fixed amount,
+    regardless of the exchange rate on the receiving side.
     """
 
     receiving_currency_code: Optional[str]
@@ -77,6 +81,13 @@ class PayRequest(JSONable):
     invoice_uuid: Optional[str] = None
     """
     The uma invoice UUID that the sender is paying.
+    """
+
+    settlement_info: Optional[SettlementInfo] = None
+    """
+    Settlement information including the layer and asset chosen by the sender.
+    Must be one of the options provided by the receiver in the lnurlp response.
+    If not specified, defaults to Lightning with BTC.
     """
 
     def signable_payload(self) -> bytes:
@@ -122,6 +133,7 @@ class PayRequest(JSONable):
                 payer_data=self.payer_data,
                 requested_payee_data=self.requested_payee_data,
                 comment=self.comment,
+                settlement_info=self.settlement_info,
             )
         )
         return version_payreq.to_dict()
@@ -145,6 +157,7 @@ class PayRequest(JSONable):
                 payer_data=v1_payreq.payer_data,
                 requested_payee_data=v1_payreq.requested_payee_data,
                 comment=v1_payreq.comment,
+                settlement_info=v1_payreq.settlement_info,
                 uma_major_version=1 if is_v1 else None,
             )
         v0_payreq = V0PayRequest.from_json(json_encoded)
