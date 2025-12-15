@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.6.0
+
+- Support alternate settlement layers/assets.
+
 ## 1.5.9
 
 - Export `parse_post_transaction_callback` function
