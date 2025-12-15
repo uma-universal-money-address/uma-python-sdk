@@ -28,6 +28,6 @@ jobs:
       - name: "Install dependencies"
         run: "rm -rf $(pipenv --venv) && pipenv install --dev && pipenv run pip install setuptools"
       - name: "Build dist"
-        run: "pipenv run python setup.py sdist --format=zip"
+        run: "pipenv run python setup.py sdist"
       - name: Publish package distributions to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
