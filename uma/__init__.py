@@ -7,21 +7,20 @@ from uma.protocol.backing_signature import (
     BackingSignature,
 )
 from uma.protocol.counterparty_data import (
+    CounterpartyDataKeys,
     CounterpartyDataOption,
     CounterpartyDataOptions,
-    CounterpartyDataKeys,
     create_counterparty_data_options,
 )
 from uma.protocol.currency import Currency
-from uma.protocol.kyc_status import KycStatus
-from uma.protocol.lnurlp_request import LnurlpRequest
-from uma.protocol.settlement import SettlementAsset, SettlementInfo, SettlementOption
-from uma.protocol.lnurlp_response import LnurlComplianceResponse, LnurlpResponse
 from uma.protocol.invoice import (
     Invoice,
     InvoiceCounterpartyDataOptions,
     InvoiceCurrency,
 )
+from uma.protocol.kyc_status import KycStatus
+from uma.protocol.lnurlp_request import LnurlpRequest
+from uma.protocol.lnurlp_response import LnurlComplianceResponse, LnurlpResponse
 from uma.protocol.payee_data import PayeeData
 from uma.protocol.payer_data import (
     CompliancePayerData,
@@ -41,15 +40,15 @@ from uma.protocol.post_tx_callback import (
     UtxoWithAmount,
 )
 from uma.protocol.pubkey_response import PubkeyResponse
+from uma.protocol.settlement import SettlementAsset, SettlementInfo, SettlementOption
 from uma.public_key_cache import (
+    IAsyncPublicKeyCache,
     InMemoryPublicKeyCache,
     IPublicKeyCache,
-    IAsyncPublicKeyCache,
 )
 from uma.signing_utils import sign_payload
 from uma.type_utils import none_throws
 from uma.uma import (
-    DEFAULT_PUBKEY_FETCH_HTTP_TIMEOUT_SECONDS,
     create_compliance_payer_data,
     create_pay_req_response,
     create_pay_req_response_for_settlement_layer,
@@ -70,16 +69,16 @@ from uma.uma import (
     parse_pay_req_response,
     parse_pay_request,
     parse_post_transaction_callback,
-    verify_pay_req_response_signature,
     verify_pay_req_response_backing_signatures,
-    verify_pay_request_signature,
+    verify_pay_req_response_signature,
     verify_pay_request_backing_signatures,
+    verify_pay_request_signature,
     verify_post_transaction_callback_signature,
     verify_uma_invoice_signature,
-    verify_uma_lnurlp_query_signature,
     verify_uma_lnurlp_query_backing_signatures,
-    verify_uma_lnurlp_response_signature,
+    verify_uma_lnurlp_query_signature,
     verify_uma_lnurlp_response_backing_signatures,
+    verify_uma_lnurlp_response_signature,
 )
 from uma.uma_invoice_creator import IUmaInvoiceCreator
 from uma.urls import is_domain_local

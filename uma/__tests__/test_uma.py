@@ -26,7 +26,6 @@ from uma.protocol.v0.payreq import PayRequest as V0PayRequest
 from uma.protocol.invoice import InvoiceCurrency
 from uma.protocol.settlement import SettlementInfo
 from uma.uma import (
-    DEFAULT_PUBKEY_FETCH_HTTP_TIMEOUT_SECONDS,
     create_compliance_payer_data,
     create_pubkey_response,
     create_uma_lnurlp_request_url,
@@ -78,9 +77,7 @@ def test_fetch_public_key() -> None:
         return_value=json.dumps(expected_pubkey.to_dict()),
     ) as mock:
         pubkey_response = fetch_public_key_for_vasp(vasp_domain, cache)
-        mock.assert_called_once_with(
-            url, DEFAULT_PUBKEY_FETCH_HTTP_TIMEOUT_SECONDS
-        )
+        mock.assert_called_once_with(url)
         assert pubkey_response == expected_pubkey
         assert cache.fetch_public_key_for_vasp(vasp_domain) == expected_pubkey
 
@@ -104,24 +101,9 @@ async def test_fetch_public_key_async() -> None:
         return_value=json.dumps(expected_pubkey.to_dict()),
     ) as mock:
         pubkey_response = await gen_fetch_public_key_for_vasp(vasp_domain, cache)
-        mock.assert_called_once_with(
-            url, DEFAULT_PUBKEY_FETCH_HTTP_TIMEOUT_SECONDS
-        )
+        mock.assert_called_once_with(url)
         assert pubkey_response == expected_pubkey
         assert await cache.gen_fetch_public_key_for_vasp(vasp_domain) == expected_pubkey
-
-
-def test_fetch_public_key_rejects_nonpositive_http_timeout() -> None:
-    cache = InMemoryPublicKeyCache()
-    with pytest.raises(ValueError, match="must be positive"):
-        fetch_public_key_for_vasp("x.com", cache, http_get_timeout_seconds=0.0)
-
-
-@pytest.mark.asyncio
-async def test_gen_fetch_public_key_rejects_nonpositive_http_timeout() -> None:
-    cache = TestAsyncPublicKeyCache()
-    with pytest.raises(ValueError, match="must be positive"):
-        await gen_fetch_public_key_for_vasp("x.com", cache, http_get_timeout_seconds=-1.0)
 
 
 def _create_pubkey_response(

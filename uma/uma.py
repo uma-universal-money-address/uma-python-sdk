@@ -73,14 +73,12 @@ from uma.version import (
     select_lower_version,
 )
 
+_PUBKEY_FETCH_HTTP_TIMEOUT_SECONDS: float = 30.0
+
 
 def fetch_public_key_for_vasp(
-    vasp_domain: str,
-    cache: IPublicKeyCache,
-    http_get_timeout_seconds: float = 30.0,
+    vasp_domain: str, cache: IPublicKeyCache
 ) -> PubkeyResponse:
-    if http_get_timeout_seconds <= 0:
-        raise ValueError("http_get_timeout_seconds must be positive")
     public_key = cache.fetch_public_key_for_vasp(vasp_domain)
     if public_key:
         return public_key
@@ -88,7 +86,7 @@ def fetch_public_key_for_vasp(
     scheme = "http://" if is_domain_local(vasp_domain) else "https://"
     url = scheme + vasp_domain + "/.well-known/lnurlpubkey"
     try:
-        response = _run_http_get(url, http_get_timeout_seconds)
+        response = _run_http_get(url)
     except Exception as ex:  # pylint: disable=broad-except
         raise InvalidRequestException(
             f"Unable to fetch pubkey from {vasp_domain}. Make sure the vasp domain is correct.",
@@ -100,12 +98,8 @@ def fetch_public_key_for_vasp(
 
 
 async def gen_fetch_public_key_for_vasp(
-    vasp_domain: str,
-    cache: IAsyncPublicKeyCache,
-    http_get_timeout_seconds: float = 30.0,
+    vasp_domain: str, cache: IAsyncPublicKeyCache
 ) -> PubkeyResponse:
-    if http_get_timeout_seconds <= 0:
-        raise ValueError("http_get_timeout_seconds must be positive")
     public_key = await cache.gen_fetch_public_key_for_vasp(vasp_domain)
     if public_key:
         return public_key
@@ -113,7 +107,7 @@ async def gen_fetch_public_key_for_vasp(
     scheme = "http://" if is_domain_local(vasp_domain) else "https://"
     url = scheme + vasp_domain + "/.well-known/lnurlpubkey"
     try:
-        response_text = await _gen_run_http_get(url, http_get_timeout_seconds)
+        response_text = await _gen_run_http_get(url)
     except Exception as ex:
         raise InvalidRequestException(
             f"Unable to fetch pubkey from {vasp_domain}. Make sure the vasp domain is correct.",
@@ -155,18 +149,20 @@ def parse_pubkey_response(response: str) -> PubkeyResponse:
     return PubkeyResponse.from_json(response)
 
 
-def _run_http_get(url: str, timeout_seconds: float) -> str:
+def _run_http_get(url: str) -> str:
     session = requests.session()
     try:
-        response = session.get(url=url, timeout=timeout_seconds)
+        response = session.get(
+            url=url, timeout=_PUBKEY_FETCH_HTTP_TIMEOUT_SECONDS
+        )
         response.raise_for_status()
         return response.text
     finally:
         session.close()
 
 
-async def _gen_run_http_get(url: str, timeout_seconds: float) -> str:
-    timeout = ClientTimeout(total=timeout_seconds)
+async def _gen_run_http_get(url: str) -> str:
+    timeout = ClientTimeout(total=_PUBKEY_FETCH_HTTP_TIMEOUT_SECONDS)
     async with ClientSession() as session:
         async with session.get(url, timeout=timeout) as response:
             response.raise_for_status()
