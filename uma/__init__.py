@@ -49,6 +49,7 @@ from uma.public_key_cache import (
 from uma.signing_utils import sign_payload
 from uma.type_utils import none_throws
 from uma.uma import (
+    DEFAULT_PUBKEY_FETCH_HTTP_TIMEOUT_SECONDS,
     create_compliance_payer_data,
     create_pay_req_response,
     create_pay_req_response_for_settlement_layer,

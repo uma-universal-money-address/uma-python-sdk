@@ -10,7 +10,7 @@ from urllib.parse import parse_qs, unquote, urlparse
 from uuid import uuid4
 
 import requests
-from aiohttp import ClientSession
+from aiohttp import ClientSession, ClientTimeout
 from coincurve.ecdsa import cdata_to_der, der_to_cdata, signature_normalize
 from coincurve.keys import PublicKey
 from cryptography.exceptions import InvalidSignature
@@ -53,13 +53,13 @@ from uma.protocol.payreq_response import (
     PayReqResponseCompliance,
     PayReqResponsePaymentInfo,
 )
-from uma.protocol.settlement import SettlementInfo, SettlementOption
 from uma.protocol.post_tx_callback import (
     PostTransactionCallback,
-    UtxoWithAmount,
     TransactionStatus,
+    UtxoWithAmount,
 )
 from uma.protocol.pubkey_response import PubkeyResponse
+from uma.protocol.settlement import SettlementInfo, SettlementOption
 from uma.public_key_cache import IAsyncPublicKeyCache, IPublicKeyCache
 from uma.signing_utils import sign_payload
 from uma.type_utils import none_throws
@@ -75,8 +75,12 @@ from uma.version import (
 
 
 def fetch_public_key_for_vasp(
-    vasp_domain: str, cache: IPublicKeyCache
+    vasp_domain: str,
+    cache: IPublicKeyCache,
+    http_get_timeout_seconds: float = 30.0,
 ) -> PubkeyResponse:
+    if http_get_timeout_seconds <= 0:
+        raise ValueError("http_get_timeout_seconds must be positive")
     public_key = cache.fetch_public_key_for_vasp(vasp_domain)
     if public_key:
         return public_key
@@ -84,7 +88,7 @@ def fetch_public_key_for_vasp(
     scheme = "http://" if is_domain_local(vasp_domain) else "https://"
     url = scheme + vasp_domain + "/.well-known/lnurlpubkey"
     try:
-        response = _run_http_get(url)
+        response = _run_http_get(url, http_get_timeout_seconds)
     except Exception as ex:  # pylint: disable=broad-except
         raise InvalidRequestException(
             f"Unable to fetch pubkey from {vasp_domain}. Make sure the vasp domain is correct.",
@@ -96,8 +100,12 @@ def fetch_public_key_for_vasp(
 
 
 async def gen_fetch_public_key_for_vasp(
-    vasp_domain: str, cache: IAsyncPublicKeyCache
+    vasp_domain: str,
+    cache: IAsyncPublicKeyCache,
+    http_get_timeout_seconds: float = 30.0,
 ) -> PubkeyResponse:
+    if http_get_timeout_seconds <= 0:
+        raise ValueError("http_get_timeout_seconds must be positive")
     public_key = await cache.gen_fetch_public_key_for_vasp(vasp_domain)
     if public_key:
         return public_key
@@ -105,7 +113,7 @@ async def gen_fetch_public_key_for_vasp(
     scheme = "http://" if is_domain_local(vasp_domain) else "https://"
     url = scheme + vasp_domain + "/.well-known/lnurlpubkey"
     try:
-        response_text = await _gen_run_http_get(url)
+        response_text = await _gen_run_http_get(url, http_get_timeout_seconds)
     except Exception as ex:
         raise InvalidRequestException(
             f"Unable to fetch pubkey from {vasp_domain}. Make sure the vasp domain is correct.",
@@ -147,17 +155,20 @@ def parse_pubkey_response(response: str) -> PubkeyResponse:
     return PubkeyResponse.from_json(response)
 
 
-def _run_http_get(url: str) -> str:
+def _run_http_get(url: str, timeout_seconds: float) -> str:
     session = requests.session()
-    response = session.get(url=url)
-    response.raise_for_status()
-    session.close()
-    return response.text
+    try:
+        response = session.get(url=url, timeout=timeout_seconds)
+        response.raise_for_status()
+        return response.text
+    finally:
+        session.close()
 
 
-async def _gen_run_http_get(url: str) -> str:
+async def _gen_run_http_get(url: str, timeout_seconds: float) -> str:
+    timeout = ClientTimeout(total=timeout_seconds)
     async with ClientSession() as session:
-        async with session.get(url) as response:
+        async with session.get(url, timeout=timeout) as response:
             response.raise_for_status()
             return await response.text()
 
